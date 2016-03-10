@@ -162,7 +162,7 @@ convertHeight&lt;-function(x){
 </div>
 <div id="descriptive-statistics" class="section level2">
 <h2>Descriptive statistics</h2>
-<pre class="r"><code>read.csv(&quot;rawdata/phenotypes_201602180000.csv&quot;,sep = ';') %&gt;% distinct -&gt; phenotypes
+<pre class="r"><code>read.csv(&quot;phenotypes_201602180000.csv&quot;,sep = ';') %&gt;% distinct -&gt; phenotypes
 phenotypes$SexScrubbed&lt;-as.factor(unlist(sapply(phenotypes$Sex,scrubSex)))
 phenotypes$MetricHeight&lt;-sapply(phenotypes$Height,convertHeight)
 
@@ -264,8 +264,8 @@ lev</code></pre>
 </div>
 </div>
 </div>
-<div id="snps-affected-height" class="section level1">
-<h1>SNPs affected height</h1>
+<div id="snps-affecting-height" class="section level1">
+<h1>SNPs affecting height</h1>
 <p><a href="https://www.snpedia.com/index.php/Height" class="uri">https://www.snpedia.com/index.php/Height</a> cites &gt; nature SNP rs1042725 is associated with height (P = 4E-8) in a study involving over 20,000 individuals. The gene harboring this SNP, HMGA2, is a strong biological &gt; candidate for having an influence on height, since rare, severe mutations in this gene are known to alter body size in mice and humans.</p>
 <blockquote>
 <p>Note that this SNP is by no means the whole story; rs1042725 is estimated to explain only 0.3% of population variation in height in both adults and children (approx 0.4 cm increased adult height per C allele), leaving over 99% of the influences on height to be described in the future …</p>
@@ -360,10 +360,10 @@ HWE.test(genotype(HWE_compliant_genotypes),exact=TRUE)</code></pre>
 ## 
 ## 
 ##               Observed      95% CI                         NA's
-##   Overall D   -9.499934e-03 (-2.018235e-02,  1.571275e-03) 0   
-##   Overall D'  -4.407783e-02 (-9.417465e-02,  6.311494e-03) 0   
-##   Overall r    3.819502e-02 (-6.311494e-03,  8.092011e-02) 0   
-##   Overall R^2  1.458860e-03 ( 1.644017e-06,  5.827845e-03) 0   
+##   Overall D   -9.499934e-03 (-2.043279e-02,  1.938921e-03) 0   
+##   Overall D'  -4.407783e-02 (-9.545054e-02,  7.799775e-03) 0   
+##   Overall r    3.819502e-02 (-7.799775e-03,  8.201469e-02) 0   
+##   Overall R^2  1.458860e-03 ( 2.279027e-05,  1.001310e-02) 0   
 ##               Contains Zero?
 ##   Overall D   YES           
 ##   Overall D'  YES           
