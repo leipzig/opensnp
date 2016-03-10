@@ -61,7 +61,7 @@ convertHeight<-function(x){
 ```
 
 ```{r height, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-phenotypes<-read.csv("rawdata/phenotypes_201602180000.csv",sep = ';')
+read.csv("rawdata/phenotypes_201602180000.csv",sep = ';') %>% distinct -> phenotypes
 phenotypes$SexScrubbed<-as.factor(unlist(sapply(phenotypes$Sex,scrubSex)))
 phenotypes$MetricHeight<-sapply(phenotypes$Height,convertHeight)
 ggplot(phenotypes,aes(MetricHeight))+geom_histogram(binwidth=2.5)+facet_grid(. ~ SexScrubbed) + theme_economist() + scale_fill_economist()
@@ -143,7 +143,7 @@ perl -ne 'm/user([0-9]+).+([ACGT])\s*([ACGT]).*/;if($1 lt $2){print $1."\t".$2.$
 While the C allele is associated with height (approx 0.4 cm increased adult height per C allele), it is perfectly reasonable to treat the three genotypes (CC,CT,TT) as groups and conduct an ANOVA.
 
 ```{r heightsnps, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-read.table("rs1042725.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() -> rs1042725
+read.table("rs1042725.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() %>% distinct -> rs1042725
 
 ```
 
@@ -217,8 +217,10 @@ The post-hoc reveals significant differencs between the CC and CT genotypes (p<0
 The interaction posthoc reveals that the significant difference (CT-CC) is isolated to females (CT:Female-CC:Female adj p-value=`r tukey[["genotype:SexScrubbed"]][1,4]`)
 
 # Lactose intolerance
-rs4988235(T) and rs182549(A) are highly predictive of lactose intolerance.
+rs4988235(G) and rs182549(C) are highly predictive of lactose intolerance.
 
+## Descriptive statistics
+### Phenotypes
 ```{r}
 scrubLactose<-function(x){
   if(str_detect(x,"[Ii]ntolerant")){
@@ -234,12 +236,31 @@ scrubLactose<-function(x){
 }
 
 phenotypes$LactoseScrubbed<-as.factor(unlist(sapply(phenotypes$Lactose.intolerance,scrubLactose)))
+phenotypes %>% filter(!is.na(LactoseScrubbed)) %>% dplyr::select(user_id,LactoseScrubbed) %>% rename(user=user_id) %>% distinct -> user_lactose
+knitr::kable(user_lactose %>% group_by(LactoseScrubbed) %>% dplyr::summarize(count=n()))
+```
+### Genotypes
+```{r}
+read.table("rs4988235.rs.clean.txt",col.names=c("user","rs4988235")) %>% filter(rs4988235 %in% c('AA','AG','GG')) %>% mutate(rs4988235_dose = ifelse(rs4988235=='GG',2,ifelse(rs4988235=='AG',1,0))) %>% droplevels() %>% distinct -> rs4988235
 
-read.table("rs4988235.rs.clean.txt",col.names=c("user","rs4988235")) %>% filter(rs4988235 %in% c('AA','AG','GG')) %>% mutate(rs4988235_dose = ifelse(rs4988235=='GG',2,ifelse(rs4988235=='AG',1,0))) %>% droplevels() -> rs4988235
+read.table("rs182549.rs.clean.txt",col.names=c("user","rs182549")) %>% filter(rs182549 %in% c('TT','CT','CC')) %>% mutate(rs182549_dose = ifelse(rs182549=='CC',2,ifelse(rs182549=='CT',1,0))) %>% droplevels() %>% distinct -> rs182549
 
-read.table("rs182549.rs.clean.txt",col.names=c("user","rs182549")) %>% filter(rs182549 %in% c('TT','CT','CC')) %>% mutate(rs182549_dose = ifelse(rs182549=='CC',2,ifelse(rs182549=='CT',1,0))) %>% droplevels() -> rs182549
+alllactose_genopheno<-merge(merge(user_lactose,rs4988235,by = "user",all=FALSE),rs182549,by = "user",all=FALSE)
 
+alllactose_genopheno %>% group_by(LactoseScrubbed,rs4988235,rs182549) %>% dplyr::summarize(observed=n()) -> lactosect
 
+#this looks awful, lets do the math and display a unified table
+table(alllactose_genopheno$LactoseScrubbed,alllactose_genopheno$rs4988235,alllactose_genopheno$rs182549) -> al_ct
+p_tot<-as.array(margin.table(al_ct,1))
+p_rs4988235<-as.array(margin.table(al_ct,2))
+p_rs182549<-as.array(margin.table(al_ct,3))
+
+lactosect$expected<-round(p_tot[lactosect$LactoseScrubbed]/sum(p_tot) * p_rs4988235[lactosect$rs4988235]/sum(p_rs4988235) * p_rs182549[lactosect$rs182549]/sum(p_rs182549) * margin.table(al_ct),2)
+lactosect$prop<-round(lactosect$observed/lactosect$expected,2)
+
+ct_for_stats<-table(phenotype=alllactose_genopheno$LactoseScrubbed,genotype=paste(alllactose_genopheno$rs4988235,alllactose_genopheno$rs182549,sep="/"))
+
+chisq.test(ct_for_stats)
 ```
 
 # Eye Color
@@ -272,32 +293,32 @@ cleanEyes<-function(x){
 }
 
 phenotypes$cleanEyes<-as.factor(sapply(phenotypes$Eye.color,cleanEyes))
-phenotypes %>% filter(!is.na(phenotypes$cleanEyes)) %>% filter(!is.na(MetricHeight)) %>% dplyr::select(user_id,cleanEyes) %>% rename(user=user_id) -> user_eyes
+phenotypes %>% filter(!is.na(phenotypes$cleanEyes)) %>% dplyr::select(user_id,cleanEyes) %>% rename(user=user_id) -> user_eyes
 
 #ref A
-read.table("rs12913832.rs.clean.txt",col.names=c("user","rs12913832")) %>% filter(rs12913832 %in% c('AA','AG','GG')) %>% mutate(rs12913832_dose = ifelse(rs12913832=='GG',2,ifelse(rs12913832=='AG',1,0))) %>% droplevels() -> rs12913832
+read.table("rs12913832.rs.clean.txt",col.names=c("user","rs12913832")) %>% filter(rs12913832 %in% c('AA','AG','GG')) %>% mutate(rs12913832_dose = ifelse(rs12913832=='GG',2,ifelse(rs12913832=='AG',1,0))) %>% droplevels() %>% distinct -> rs12913832
 
 #ref G
-read.table("rs1800407.rs.clean.txt",col.names=c("user","rs1800407")) %>% filter(rs1800407 %in% c('CC','CT','TT')) %>% mutate(rs1800407_dose = ifelse(rs1800407=='TT',2,ifelse(rs1800407=='CT',1,0))) %>% droplevels() -> rs1800407
+read.table("rs1800407.rs.clean.txt",col.names=c("user","rs1800407")) %>% filter(rs1800407 %in% c('CC','CT','TT')) %>% mutate(rs1800407_dose = ifelse(rs1800407=='TT',2,ifelse(rs1800407=='CT',1,0))) %>% droplevels() %>% distinct -> rs1800407
 
 #ref T
-read.table("rs12896399.rs.clean.txt",col.names=c("user","rs12896399")) %>% filter(rs12896399 %in% c('GG','GT','TT')) %>% mutate(rs12896399_dose = ifelse(rs12896399=='GG',2,ifelse(rs12896399=='GT',1,0))) %>% droplevels() -> rs12896399
+read.table("rs12896399.rs.clean.txt",col.names=c("user","rs12896399")) %>% filter(rs12896399 %in% c('GG','GT','TT')) %>% mutate(rs12896399_dose = ifelse(rs12896399=='GG',2,ifelse(rs12896399=='GT',1,0))) %>% droplevels() %>% distinct -> rs12896399
 
 #ref G
-read.table("rs16891982.rs.clean.txt",col.names=c("user","rs16891982")) %>% filter(rs16891982 %in% c('CC','CG','GG')) %>% mutate(rs16891982_dose = ifelse(rs16891982=='CC',2,ifelse(rs16891982=='CG',1,0))) %>% droplevels() -> rs16891982
+read.table("rs16891982.rs.clean.txt",col.names=c("user","rs16891982")) %>% filter(rs16891982 %in% c('CC','CG','GG')) %>% mutate(rs16891982_dose = ifelse(rs16891982=='CC',2,ifelse(rs16891982=='CG',1,0))) %>% droplevels() %>% distinct -> rs16891982
 
 #ref G
-read.table("rs1393350.rs.clean.txt",col.names=c("user","rs1393350")) %>% filter(rs1393350 %in% c('AA','AG','GG')) %>% mutate(rs1393350_dose = ifelse(rs1393350=='AA',2,ifelse(rs1393350=='AG',1,0))) %>% droplevels() -> rs1393350
+read.table("rs1393350.rs.clean.txt",col.names=c("user","rs1393350")) %>% filter(rs1393350 %in% c('AA','AG','GG')) %>% mutate(rs1393350_dose = ifelse(rs1393350=='AA',2,ifelse(rs1393350=='AG',1,0))) %>% droplevels() %>% distinct -> rs1393350
 
 #ref C
-read.table("rs12203592.rs.clean.txt",col.names=c("user","rs12203592")) %>% filter(rs12203592 %in% c('CC','CT','TT')) %>% mutate(rs12203592_dose = ifelse(rs12203592=='TT',2,ifelse(rs12203592=='CT',1,0))) %>% droplevels() -> rs12203592
+read.table("rs12203592.rs.clean.txt",col.names=c("user","rs12203592")) %>% filter(rs12203592 %in% c('CC','CT','TT')) %>% mutate(rs12203592_dose = ifelse(rs12203592=='TT',2,ifelse(rs12203592=='CT',1,0))) %>% droplevels() %>% distinct -> rs12203592
  
 
 
 
 Reduce(function(x, y) merge(x, y, by="user", all=TRUE), list(rs12913832,rs1800407,rs12896399,rs16891982,rs1393350,rs12203592)) %>% distinct -> alleyes
 
-alleyes_genopheno<-merge(user_eyes,alleyes,by = "user")
+alleyes_genopheno<-merge(user_eyes,alleyes,by = "user",all=FALSE)
 
 #test against all other variables
 #http://stats.stackexchange.com/questions/60817/significance-of-categorical-predictor-in-logistic-regression
@@ -305,9 +326,8 @@ alleyes_genopheno<-merge(user_eyes,alleyes,by = "user")
 reg = glm(cleanEyes~rs12913832_dose+rs1800407_dose+rs12896399_dose+rs16891982_dose+rs1393350_dose+rs12203592_dose,family=binomial,data=alleyes_genopheno)
 summary(reg)
 
-table(alleyes_genopheno$cleanEyes,alleyes_genopheno$rs1800407)
 ```
-Let's look the highly signficant (P<0.001) SNPs individually, outside the model, both from a categorical standpoint to see if our dose values make any sense.
+Let's look the highly signficant (P<0.001) SNPs individually, outside the model, from a categorical standpoint to see if our dose values make any sense.
 
 ```{r}
 snp_of_interest<-"rs12913832"
