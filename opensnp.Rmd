@@ -288,12 +288,13 @@ ct_for_stats<-table(phenotype=alllactose_genopheno$LactoseScrubbed,genotype=past
 chi_res<-chisq.test(ct_for_stats)
 chi_res
 
-knitr::kable(agd,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance")
+agd[agd$obs>4,] -> agdfilt
+knitr::kable(agdfilt,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance")
 
 
 ```
 
-Which combinations differ? There are a 18 choose 2 two-way comparisons to make. I am most curious about the high risk GG/CC allele
+Which combinations differ? There are several 2 two-way comparisons to make. I am most curious about the high risk GG/CC allele
 ```{r}
 GGCC_vs_everythingelse<-rbind(ct_for_stats[,5],rowSums(ct_for_stats[,-5]))
 chisq.test(GGCC_vs_everythingelse)
@@ -368,35 +369,6 @@ For simplicity, let's just look at this from an additive model.
 ```{r}
 reg = glm(cleanEyes~rs12913832_dose+rs1800407_dose+rs12896399_dose+rs16891982_dose+rs1393350_dose+rs12203592_dose,family=binomial,data=alleyes_genopheno)
 summary(reg)
-```
-
-Let's look the highly signficant (P<0.001) SNPs individually, outside the model, from a categorical standpoint to see if our dose values make any sense.
-
-### rs12913832
-```{r}
-snp_of_interest<-"rs12913832"
-```
-
-```{r soi, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-eyes_rs<-merge(user_eyes,eval(parse(text=snp_of_interest)),by = "user")
-
-eyes_rs_ct<-table(eyes_rs$cleanEyes,eyes_rs[,snp_of_interest])
-attr(eyes_rs_ct,"dimnames")[[2]]<-paste("obs_",attr(eyes_rs_ct,"dimnames")[[2]],sep="")
-
-expected <- round(as.array(margin.table(eyes_rs_ct,1)) %*%
-  t(as.array(margin.table(eyes_rs_ct,2))) / margin.table(eyes_rs_ct),2)
-attr(expected,"dimnames")[[2]]<-paste("exp_",attr(expected,"dimnames")[[2]],sep="")
-
-knitr::kable(cbind(eyes_rs_ct,expected), caption=snp_of_interest)
-
-chisq.test(eyes_rs_ct)
-```
-
-### rs16891982
-```{r}
-snp_of_interest<-"rs16891982"
-```
-```{r rs16891982, ref.label='soi', echo=TRUE, message=FALSE, cache=FALSE}
 ```
 
 This script can be found on [https://github.com/leipzig/INFO812_opensnp](https://github.com/leipzig/INFO812_opensnp).
