@@ -1,0 +1,269 @@
+---
+title: "Exploring OpenSNP"
+author: "Jeremy Leipzig"
+date: "3/7/2016"
+output: html_document
+---
+
+Genome wide association studies are designed to look for genetic markers, typically single nucleotide polymorphisms, in microarray or sequencing data associated with phenotypes – diseases or other physical characteristics. OpenSNP (https://opensnp.org) is a community “crowdsourced” project in which ordinary people can submit genotypes obtained from commercial direct-to-consumer genetic testing providers such as 23andme, along with whatever phenotypic descriptors – both physical (eye color, height) and behavioral (disposition, preferences) – that they choose to reveal.
+
+Can we validate published genome-wide association studies of common human phenotypes using the relatively small volunteered data publicly available in OpenSNP? 
+
+
+```{r libs, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+library(foreign)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(forecast)
+library(datamart)
+library(lawstat)
+library(genetics)
+library(ggthemes)
+```
+
+```{r munge, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+scrubSex<-function(x){
+  if(str_detect(x,"[Ff]emale|[Ww]oman")){
+    return("Female")
+  }
+  if(str_detect(x,"[Mm]ale|[Mm]an")){
+    return("Male")
+  }
+  return(NA_character_)
+}
+convertHeight<-function(x){
+  if(is.na(x)){
+      return(NA_integer_)
+  }
+  if(str_detect(x,"Average \\( 165cm < x < 180cm \\)")){
+    #return(NA_integer_)
+    return((165+180)/2)
+  }
+  is_cm<-str_match(x,"([0-9.]+)\\s?cm")
+  if(!is.na(is_cm[1])){
+    return(as.numeric(unlist(is_cm[2])[1]))
+  }
+  x<-str_replace(x,"''",'"')
+  #feet inches
+  if(str_detect(x,"[\"']")[1]){
+    x<-str_replace(x,'1/2','.5')
+    x<-str_replace(x,'3/4','.75')
+    x<-str_replace_all(x,' ','')
+    x<-str_replace(x,"[^0-9]+$","")
+    inches<-sapply(strsplit(as.character(x),"'|\"|`"),function(y){12*as.numeric(y[1]) + as.numeric(y[2])})
+    cm<-uconv(inches, "in", "cm", uset = "Length")
+    return(as.numeric(cm))
+  }
+  return(NA_integer_)
+}
+```
+
+```{r height, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+phenotypes<-read.csv("rawdata/phenotypes_201602180000.csv",sep = ';')
+phenotypes$SexScrubbed<-as.factor(unlist(sapply(phenotypes$Sex,scrubSex)))
+phenotypes$MetricHeight<-sapply(phenotypes$Height,convertHeight)
+ggplot(phenotypes,aes(MetricHeight))+geom_histogram(binwidth=2.5)+facet_grid(. ~ SexScrubbed)
+
+phenotypes %>% filter(phenotypes$SexScrubbed=='Male' | phenotypes$SexScrubbed=='Female') %>% filter(!is.na(MetricHeight)) %>% dplyr::select(MetricHeight,SexScrubbed) -> heights
+```
+# Height
+## Are men taller than women?
+This question has puzzled mankind for centuries. But now we can use our sample sets of `r sum(heights$SexScrubbed=='Female',na.rm=TRUE)` females and `r sum(heights$SexScrubbed=='Male',na.rm=TRUE)` males with height information to see if this is the case.
+
+The t-test has the following assumptions
+- Each of the two populations being compared should follow a normal distribution
+- the two populations being compared should have the same variance
+
+### Test for normal distribution
+
+```{r normalheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+phenotypes %>% filter(phenotypes$SexScrubbed=='Male') %>% dplyr::select(MetricHeight)  %>% filter(!is.na(MetricHeight)) -> male_heights
+shapiro.test(male_heights$MetricHeight)
+```
+This is not exactly normal. Perhaps a BoxCox transformation will help.
+
+```{r txheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+lambda = BoxCox.lambda(male_heights$MetricHeight)
+male_height_transformed<-BoxCox(male_heights$MetricHeight, lambda)
+shapiro.test(male_height_transformed)
+```
+Well, still not technically normal but we will have to proceed.
+
+And for the females...
+```{r femaleheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+phenotypes %>% filter(phenotypes$SexScrubbed=='Female') %>% dplyr::select(MetricHeight)  %>% filter(!is.na(MetricHeight)) -> female_heights
+shapiro.test(female_heights$MetricHeight)
+qqnorm(female_heights$MetricHeight)
+lambda = BoxCox.lambda(female_heights$MetricHeight)
+female_height_transformed<-BoxCox(female_heights$MetricHeight, lambda)
+shapiro.test(female_height_transformed)
+```
+
+
+### Tests for equal varaiance
+We can conduct a Levene's test for equal variance. 
+```{r levene, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+lev<-levene.test(heights[,"MetricHeight"], heights[,"SexScrubbed"], location=c("median", "mean", "trim.mean"), trim.alpha=0.25, bootstrap = FALSE, num.bootstrap=1000, kruskal.test=FALSE,  correction.method=c("none","correction.factor","zero.removal","zero.correction"))
+lev
+```
+
+If the p-value is greater than, say 0.05, we fail to reject the null hypothesis that the variances from which the two populations are drawn are equal, and proceed. The p-value of `r lev$p.value` is a good thing.
+
+### The t-test
+I have the a priori suspicion that males are taller than females, so this will be a one-sided test.
+
+```{r ttest, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+t.test(female_height_transformed,male_height_transformed,var.equal=TRUE,alternative = "less")
+```
+
+With a p-value below the calculable minimum, we can reject the null hypothesis these males and females are drawn from populations with equal height, and accept the alternate hypothesis that men are taller than women.
+
+## SNPs affected height
+https://www.snpedia.com/index.php/Height cites 
+> nature SNP rs1042725 is associated with height (P = 4E-8) in a study involving over 20,000 individuals. The gene harboring this SNP, HMGA2, is a strong biological
+> candidate for having an influence on height, since rare, severe mutations in this gene are known to alter body size in mice and humans.
+
+> Note that this SNP is by no means the whole story; rs1042725 is estimated to explain only 0.3% of population variation in height in both adults and children (approx 
+> 0.4 cm increased adult height per C allele), leaving over 99% of the influences on height to be described in the future ...
+
+The alleles rs1042725 are CC, CT, and TT for I am interested to see if any of these 3 groups differ with regard to a continous variable, height.
+
+I grepped this SNP from the genotype files and cleaned the results.
+
+```
+grep 'rs1042725\s' *.txt > ../rs1042725.rs.txt
+
+perl -ne 'm/user([0-9]+).+([ACGT])\s*([ACGT]).*/;if($1 lt $2){print $1."\t".$2.$3."\n";}else{print $1."\t".$3.$2."\n";}' < rs1042725.txt > rs1042725.rs.clean.txt
+```
+
+While the C allele is associated with height (approx 0.4 cm increased adult height per C allele), it is perfectly reasonable to treat the three genotypes (CC,CT,TT) as groups and conduct an ANOVA.
+
+```{r heightsnps, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+read.table("rs1042725.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() -> rs1042725
+
+```
+
+A contingency talbe of the genotypes
+```{r genocontingency, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+table(rs1042725$genotype)
+```
+
+We can perform a Hardy-Weinberg test to see if the allele frequencies are consistent with random mating
+```{r hwe, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+rs1042725$genotype %>% str_replace("([CT])([CT])","\\1/\\2") -> HWE_compliant_genotypes
+HWE.test(genotype(HWE_compliant_genotypes),exact=TRUE)
+```
+
+The p-value of 1 indicates this allele is in HW equilibrium.
+```{r userheights, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+phenotypes %>% filter(phenotypes$SexScrubbed=='Male' | phenotypes$SexScrubbed=='Female') %>% filter(!is.na(MetricHeight)) %>% dplyr::select(user_id,MetricHeight,SexScrubbed) %>% rename(user=user_id) -> user_heights
+```
+
+We will merge the `r nrow(rs1042725)` known rs1042725 genotype and `r nrow(user_heights)` known height phenotypes
+```{r heightmerge, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+height_genopheno<-merge(user_heights,rs1042725,by = "user")
+```
+
+`r nrow(height_genopheno)` have both genotype and phenotype
+
+Let's see if this SNP works regardless of sex
+```{r txheightsex, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
+shapiro.test(height_genopheno$MetricHeight)
+qqnorm(height_genopheno$MetricHeight)
+lambda = BoxCox.lambda(height_genopheno$MetricHeight)
+height_transformed<-BoxCox(height_genopheno$MetricHeight, lambda)
+shapiro.test(height_transformed)
+```
+
+Uhh let's stick with the original data
+
+Do we see any difference in means?
+```{r}
+height_genopheno %>% group_by(genotype,SexScrubbed) %>% dplyr::summarize(mean(MetricHeight),sd(MetricHeight)) -> height_by_gene_sex
+names(height_by_gene_sex)<-c("genotype","sex","mean_height","stdev")
+knitr::kable(height_by_gene_sex)
+ggplot(height_genopheno, aes(SexScrubbed, MetricHeight,fill=genotype)) + geom_boxplot() + theme_economist() + scale_fill_economist()
+```
+We would expect CC to be the tallest, then CT, then TT. Here it appears CT is a couple centimeters shorter than it should be, but that can be due to sampling error or confounds related to population structure. As mentioned, this allele is understood to explain only 0.3% of population variation in height.
+
+Are any of the differences significant?
+
+```{r}
+fit <- aov(MetricHeight ~ genotype*SexScrubbed, data=height_genopheno)
+fitsum<-summary(fit)
+fitsum
+```
+
+We already know sex is a significant variable in determining height, but we should include sex that as a factor because it could act as a coufounding variable otherwise. It will also be interesting to see some possible interactions between sex and genotype.
+
+The null hypothesis is that the population height means of all genotype groups are equal.
+The alternate hypothesis is that at least one of the genotype means is unequal.
+
+The f-value of `r fitsum[[1]][4][[1]][1]` and p-value `r fitsum[[1]][5][[1]][1]`, we reject the null hypothesis that all genotypes groups are equal. The population mean height of at least one of the groups differs significantly.
+
+A post-hoc can reveal which groups differ significantly.
+```{r}
+tukey<-TukeyHSD(fit)
+tukey
+```
+The post-hoc reveals significant differencs between the CC and CT genotypes (p<0.05) but not the other pairwise comparisons.
+
+The interaction posthoc reveals that the significant difference (CT-CC) is isolated to females (CT:Female-CC:Female adj p-value=`r tukey[["genotype:SexScrubbed"]][1,4]`)
+
+# Lactose intolerance
+rs4988235(T) and rs182549(A) are highly predictive of lactose intolerance.
+
+
+
+# Eye Color
+Kayser et al ["Eye color and the prediction of complex phenotypes from genotypes"](http://www.sciencedirect.com/science/article/pii/S0960982209005971) concluded that 6 SNPs (rs12913832 rs1800407 rs12896399 rs16891982 rs1393350 rs12203592) could predict blue, brown, and intermediate color with more than 90% accuracy.
+
+We can examine each of these snps individually and in tandem.
+
+```{r}
+cleanEyes<-function(x){
+  if(str_detect(x,"[bB]lue") & str_detect(x,"[Gg]reen")){
+    return("Hazel")
+  }
+    if(str_detect(x,"[bB]lue")){
+    return("Blue")
+  }
+  if(str_detect(x,"[Bb]rown")){
+    return("Brown")
+  }
+  if(str_detect(x,"[Hh]azel")){
+    return("Hazel")
+  }
+  if(str_detect(x,"[Gg]reen")){
+    return("Green")
+  }
+  return(NA_character_)
+}
+
+phenotypes$cleanEyes<-sapply(phenotypes$Eye.color,cleanEyes)
+phenotypes %>% filter(!is.na(phenotypes$cleanEyes)) %>% filter(!is.na(MetricHeight)) %>% dplyr::select(user_id,cleanEyes) %>% rename(user=user_id) -> user_eyes
+
+read.table("rs12913832.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('AA','AG','GG')) %>% droplevels() -> rs12913832
+
+read.table("rs1800407.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() -> rs1800407
+
+read.table("rs12896399.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('GG','GT','TT')) %>% droplevels() -> rs12896399
+
+read.table("rs16891982.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CG','GG')) %>% droplevels() -> rs16891982
+
+read.table("rs1393350.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('AA','AG','GG')) %>% droplevels() -> rs1393350
+
+ rs12203592
+ 
+ 
+eyes_genopheno<-merge(user_eyes,rs12913832,by = "user")
+
+eyes_contingency<-table(eyes_genopheno$cleanEyes,eyes_genopheno$genotype)
+knitr::kable(eyes_contingency)
+chisq.test(eyes_contingency)
+
+eyes_genopheno<-merge(eyes_genopheno,rs1800407,by = "user")
+
+
+```
