@@ -20,6 +20,7 @@ library(datamart)
 library(lawstat)
 library(genetics)
 library(ggthemes)
+library(car)
 ```
 
 ```{r munge, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
@@ -63,7 +64,7 @@ convertHeight<-function(x){
 phenotypes<-read.csv("rawdata/phenotypes_201602180000.csv",sep = ';')
 phenotypes$SexScrubbed<-as.factor(unlist(sapply(phenotypes$Sex,scrubSex)))
 phenotypes$MetricHeight<-sapply(phenotypes$Height,convertHeight)
-ggplot(phenotypes,aes(MetricHeight))+geom_histogram(binwidth=2.5)+facet_grid(. ~ SexScrubbed)
+ggplot(phenotypes,aes(MetricHeight))+geom_histogram(binwidth=2.5)+facet_grid(. ~ SexScrubbed) + theme_economist() + scale_fill_economist()
 
 phenotypes %>% filter(phenotypes$SexScrubbed=='Male' | phenotypes$SexScrubbed=='Female') %>% filter(!is.na(MetricHeight)) %>% dplyr::select(MetricHeight,SexScrubbed) -> heights
 ```
@@ -94,7 +95,9 @@ And for the females...
 ```{r femaleheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 phenotypes %>% filter(phenotypes$SexScrubbed=='Female') %>% dplyr::select(MetricHeight)  %>% filter(!is.na(MetricHeight)) -> female_heights
 shapiro.test(female_heights$MetricHeight)
-qqnorm(female_heights$MetricHeight)
+p <- ggplot(female_heights, aes(sample = MetricHeight))
+p + stat_qq()  + theme_economist() + scale_fill_economist()
+
 lambda = BoxCox.lambda(female_heights$MetricHeight)
 female_height_transformed<-BoxCox(female_heights$MetricHeight, lambda)
 shapiro.test(female_height_transformed)
@@ -104,7 +107,7 @@ shapiro.test(female_height_transformed)
 ### Tests for equal varaiance
 We can conduct a Levene's test for equal variance. 
 ```{r levene, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-lev<-levene.test(heights[,"MetricHeight"], heights[,"SexScrubbed"], location=c("median", "mean", "trim.mean"), trim.alpha=0.25, bootstrap = FALSE, num.bootstrap=1000, kruskal.test=FALSE,  correction.method=c("none","correction.factor","zero.removal","zero.correction"))
+lev<-leveneTest(heights[,"MetricHeight"], heights[,"SexScrubbed"])
 lev
 ```
 
@@ -140,7 +143,7 @@ perl -ne 'm/user([0-9]+).+([ACGT])\s*([ACGT]).*/;if($1 lt $2){print $1."\t".$2.$
 While the C allele is associated with height (approx 0.4 cm increased adult height per C allele), it is perfectly reasonable to treat the three genotypes (CC,CT,TT) as groups and conduct an ANOVA.
 
 ```{r heightsnps, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-read.table("rs1042725.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() -> rs1042725
+read.table("rs1042725.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() -> rs1042725
 
 ```
 
@@ -170,7 +173,9 @@ height_genopheno<-merge(user_heights,rs1042725,by = "user")
 Let's see if this SNP works regardless of sex
 ```{r txheightsex, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 shapiro.test(height_genopheno$MetricHeight)
-qqnorm(height_genopheno$MetricHeight)
+p <- ggplot(height_genopheno, aes(sample = MetricHeight))
+p + stat_qq()  + theme_economist() + scale_fill_economist()
+
 lambda = BoxCox.lambda(height_genopheno$MetricHeight)
 height_transformed<-BoxCox(height_genopheno$MetricHeight, lambda)
 shapiro.test(height_transformed)
@@ -214,17 +219,41 @@ The interaction posthoc reveals that the significant difference (CT-CC) is isola
 # Lactose intolerance
 rs4988235(T) and rs182549(A) are highly predictive of lactose intolerance.
 
+```{r}
+scrubLactose<-function(x){
+  if(str_detect(x,"[Ii]ntolerant")){
+    return("Intolerant")
+  }
+  if(str_detect(x,"allergic")){
+    return("Intolerant")
+  }
+  if(str_detect(x,"[Tt]olerant")){
+    return("Tolerant")
+  }
+  return(NA_character_)
+}
 
+phenotypes$LactoseScrubbed<-as.factor(unlist(sapply(phenotypes$Lactose.intolerance,scrubLactose)))
+
+read.table("rs4988235.rs.clean.txt",col.names=c("user","rs4988235")) %>% filter(rs4988235 %in% c('AA','AG','GG')) %>% mutate(rs4988235_dose = ifelse(rs4988235=='GG',2,ifelse(rs4988235=='AG',1,0))) %>% droplevels() -> rs4988235
+
+read.table("rs182549.rs.clean.txt",col.names=c("user","rs182549")) %>% filter(rs182549 %in% c('TT','CT','CC')) %>% mutate(rs182549_dose = ifelse(rs182549=='CC',2,ifelse(rs182549=='CT',1,0))) %>% droplevels() -> rs182549
+
+
+```
 
 # Eye Color
 Kayser et al ["Eye color and the prediction of complex phenotypes from genotypes"](http://www.sciencedirect.com/science/article/pii/S0960982209005971) concluded that 6 SNPs (rs12913832 rs1800407 rs12896399 rs16891982 rs1393350 rs12203592) could predict blue, brown, and intermediate color with more than 90% accuracy.
 
 We can examine each of these snps individually and in tandem.
 
+Let's map the alternate allele to a dose response, so homozygous alternate = 2, heterozygous = 1, and homozygous reference = 0. Then we can use logistic regression with continuous (or at least ordinal), regressors.
+
 ```{r}
 cleanEyes<-function(x){
   if(str_detect(x,"[bB]lue") & str_detect(x,"[Gg]reen")){
-    return("Hazel")
+    #return("Hazel")
+    return("Brown")
   }
     if(str_detect(x,"[bB]lue")){
     return("Blue")
@@ -233,7 +262,8 @@ cleanEyes<-function(x){
     return("Brown")
   }
   if(str_detect(x,"[Hh]azel")){
-    return("Hazel")
+    #return("Hazel")
+    return("Brown")
   }
   if(str_detect(x,"[Gg]reen")){
     return("Green")
@@ -241,29 +271,68 @@ cleanEyes<-function(x){
   return(NA_character_)
 }
 
-phenotypes$cleanEyes<-sapply(phenotypes$Eye.color,cleanEyes)
+phenotypes$cleanEyes<-as.factor(sapply(phenotypes$Eye.color,cleanEyes))
 phenotypes %>% filter(!is.na(phenotypes$cleanEyes)) %>% filter(!is.na(MetricHeight)) %>% dplyr::select(user_id,cleanEyes) %>% rename(user=user_id) -> user_eyes
 
-read.table("rs12913832.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('AA','AG','GG')) %>% droplevels() -> rs12913832
+#ref A
+read.table("rs12913832.rs.clean.txt",col.names=c("user","rs12913832")) %>% filter(rs12913832 %in% c('AA','AG','GG')) %>% mutate(rs12913832_dose = ifelse(rs12913832=='GG',2,ifelse(rs12913832=='AG',1,0))) %>% droplevels() -> rs12913832
 
-read.table("rs1800407.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() -> rs1800407
+#ref G
+read.table("rs1800407.rs.clean.txt",col.names=c("user","rs1800407")) %>% filter(rs1800407 %in% c('CC','CT','TT')) %>% mutate(rs1800407_dose = ifelse(rs1800407=='TT',2,ifelse(rs1800407=='CT',1,0))) %>% droplevels() -> rs1800407
 
-read.table("rs12896399.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('GG','GT','TT')) %>% droplevels() -> rs12896399
+#ref T
+read.table("rs12896399.rs.clean.txt",col.names=c("user","rs12896399")) %>% filter(rs12896399 %in% c('GG','GT','TT')) %>% mutate(rs12896399_dose = ifelse(rs12896399=='GG',2,ifelse(rs12896399=='GT',1,0))) %>% droplevels() -> rs12896399
 
-read.table("rs16891982.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CG','GG')) %>% droplevels() -> rs16891982
+#ref G
+read.table("rs16891982.rs.clean.txt",col.names=c("user","rs16891982")) %>% filter(rs16891982 %in% c('CC','CG','GG')) %>% mutate(rs16891982_dose = ifelse(rs16891982=='CC',2,ifelse(rs16891982=='CG',1,0))) %>% droplevels() -> rs16891982
 
-read.table("rs1393350.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('AA','AG','GG')) %>% droplevels() -> rs1393350
+#ref G
+read.table("rs1393350.rs.clean.txt",col.names=c("user","rs1393350")) %>% filter(rs1393350 %in% c('AA','AG','GG')) %>% mutate(rs1393350_dose = ifelse(rs1393350=='AA',2,ifelse(rs1393350=='AG',1,0))) %>% droplevels() -> rs1393350
 
- rs12203592
+#ref C
+read.table("rs12203592.rs.clean.txt",col.names=c("user","rs12203592")) %>% filter(rs12203592 %in% c('CC','CT','TT')) %>% mutate(rs12203592_dose = ifelse(rs12203592=='TT',2,ifelse(rs12203592=='CT',1,0))) %>% droplevels() -> rs12203592
  
- 
-eyes_genopheno<-merge(user_eyes,rs12913832,by = "user")
-
-eyes_contingency<-table(eyes_genopheno$cleanEyes,eyes_genopheno$genotype)
-knitr::kable(eyes_contingency)
-chisq.test(eyes_contingency)
-
-eyes_genopheno<-merge(eyes_genopheno,rs1800407,by = "user")
 
 
+
+Reduce(function(x, y) merge(x, y, by="user", all=TRUE), list(rs12913832,rs1800407,rs12896399,rs16891982,rs1393350,rs12203592)) %>% distinct -> alleyes
+
+alleyes_genopheno<-merge(user_eyes,alleyes,by = "user")
+
+#test against all other variables
+#http://stats.stackexchange.com/questions/60817/significance-of-categorical-predictor-in-logistic-regression
+
+reg = glm(cleanEyes~rs12913832_dose+rs1800407_dose+rs12896399_dose+rs16891982_dose+rs1393350_dose+rs12203592_dose,family=binomial,data=alleyes_genopheno)
+summary(reg)
+
+table(alleyes_genopheno$cleanEyes,alleyes_genopheno$rs1800407)
+```
+Let's look the highly signficant (P<0.001) SNPs individually, outside the model, both from a categorical standpoint to see if our dose values make any sense.
+
+```{r}
+snp_of_interest<-"rs12913832"
+```
+
+```{r soi}
+eyes_rs<-merge(user_eyes,eval(parse(text=snp_of_interest)),by = "user")
+
+eyes_rs_ct<-table(eyes_rs$cleanEyes,eyes_rs[,snp_of_interest])
+knitr::kable(eyes_rs_ct)
+
+#prop.table(eyes_rs12896399_ct)
+#prop.table(eyes_rs12896399_ct,1)
+#prop.table(eyes_rs12896399_ct,2)
+
+expected <- as.array(margin.table(eyes_rs_ct,1)) %*%
+  t(as.array(margin.table(eyes_rs_ct,2))) / margin.table(eyes_rs_ct)
+
+knitr::kable(expected)
+chisq.test(eyes_rs_ct)
+```
+
+
+```{r}
+snp_of_interest<-"rs1393350"
+```
+```{r rs1393350, ref.label='soi', echo=TRUE, message=FALSE, cache=FALSE}
 ```
