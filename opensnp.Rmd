@@ -5,10 +5,19 @@ date: "3/7/2016"
 output: html_document
 ---
 
+# Introduction
 Genome wide association studies are designed to look for genetic markers, typically single nucleotide polymorphisms, in microarray or sequencing data associated with phenotypes – diseases or other physical characteristics. OpenSNP (https://opensnp.org) is a community “crowdsourced” project in which ordinary people can submit genotypes obtained from commercial direct-to-consumer genetic testing providers such as 23andme, along with whatever phenotypic descriptors – both physical (eye color, height) and behavioral (disposition, preferences) – that they choose to reveal.
 
 Can we validate published genome-wide association studies of common human phenotypes using the relatively small volunteered data publicly available in OpenSNP? 
 
+Because this report is for an introductory statistic class, I will use a different method to approach our study of three physical traits:
+
+| trait | design | method |
+|:--------|--------|--------:|
+| Height by sex | One categorical independent variables, one continuous dependent variable | t-test |
+| Height by gene+sex | Two categorical independent variables, one continuous dependent variable | Two factor factorial ANOVA |
+| Lactose intolerance | Two categorical indepdent variables, one binary categorical dependent variable | Chi-square |
+| Eye color | 6 ordinal covariates, one categorical dependent variable | Logistic regression |
 
 ```{r libs, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 library(foreign)
@@ -21,8 +30,19 @@ library(lawstat)
 library(genetics)
 library(ggthemes)
 library(car)
+library(gridExtra)
 ```
 
+# Height
+## Are men taller than women?
+This question has puzzled mankind for centuries. But now we can use our sample sets of 153 females and 227 males with height information to see if this is the case.
+
+The t-test has the following assumptions
+- Each of the two populations being compared should follow a normal distribution
+- the two populations being compared should have the same variance
+
+## Data cleaning
+OpenSNP data uses free form text fields for phenotypic entry. The `sex` field is pretty tame, but the `height` entries use an disorderly mix of English and metric units and some fixed ranges. Here I use regexes to attempt to convert everything to centimeters.
 ```{r munge, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 scrubSex<-function(x){
   if(str_detect(x,"[Ff]emale|[Ww]oman")){
@@ -60,24 +80,23 @@ convertHeight<-function(x){
 }
 ```
 
+## Descriptive statistics
 ```{r height, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-read.csv("rawdata/phenotypes_201602180000.csv",sep = ';') %>% distinct -> phenotypes
+read.csv("phenotypes_201602180000.csv",sep = ';') %>% distinct -> phenotypes
 phenotypes$SexScrubbed<-as.factor(unlist(sapply(phenotypes$Sex,scrubSex)))
 phenotypes$MetricHeight<-sapply(phenotypes$Height,convertHeight)
-ggplot(phenotypes,aes(MetricHeight))+geom_histogram(binwidth=2.5)+facet_grid(. ~ SexScrubbed) + theme_economist() + scale_fill_economist()
 
 phenotypes %>% filter(phenotypes$SexScrubbed=='Male' | phenotypes$SexScrubbed=='Female') %>% filter(!is.na(MetricHeight)) %>% dplyr::select(MetricHeight,SexScrubbed) -> heights
-```
-# Height
-## Are men taller than women?
-This question has puzzled mankind for centuries. But now we can use our sample sets of `r sum(heights$SexScrubbed=='Female',na.rm=TRUE)` females and `r sum(heights$SexScrubbed=='Male',na.rm=TRUE)` males with height information to see if this is the case.
 
-The t-test has the following assumptions
-- Each of the two populations being compared should follow a normal distribution
-- the two populations being compared should have the same variance
+heights %>% group_by(SexScrubbed) %>% dplyr::summarize(mean(MetricHeight),sd(MetricHeight)) -> height_by_sex
+names(height_by_sex)<-c("sex","mean_height","stdev")
+knitr::kable(height_by_sex)
+
+ggplot(heights,aes(MetricHeight))+geom_histogram(binwidth=2.5)+facet_grid(. ~ SexScrubbed) + theme_economist() + scale_fill_economist()
+```
+
 
 ### Test for normal distribution
-
 ```{r normalheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 phenotypes %>% filter(phenotypes$SexScrubbed=='Male') %>% dplyr::select(MetricHeight)  %>% filter(!is.na(MetricHeight)) -> male_heights
 shapiro.test(male_heights$MetricHeight)
@@ -95,8 +114,12 @@ And for the females...
 ```{r femaleheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 phenotypes %>% filter(phenotypes$SexScrubbed=='Female') %>% dplyr::select(MetricHeight)  %>% filter(!is.na(MetricHeight)) -> female_heights
 shapiro.test(female_heights$MetricHeight)
-p <- ggplot(female_heights, aes(sample = MetricHeight))
-p + stat_qq()  + theme_economist() + scale_fill_economist()
+
+plot1 <- ggplot(female_heights, aes(sample = MetricHeight)) + ggtitle("Female heights q-q plot") + stat_qq()  + theme_economist() + scale_fill_economist()
+plot2 <- ggplot(male_heights, aes(sample = MetricHeight)) + ggtitle("Male heights q-q plot") + stat_qq()  + theme_economist() + scale_fill_economist()
+grid.arrange(plot1, plot2, ncol=2)
+
+
 
 lambda = BoxCox.lambda(female_heights$MetricHeight)
 female_height_transformed<-BoxCox(female_heights$MetricHeight, lambda)
@@ -122,7 +145,7 @@ t.test(female_height_transformed,male_height_transformed,var.equal=TRUE,alternat
 
 With a p-value below the calculable minimum, we can reject the null hypothesis these males and females are drawn from populations with equal height, and accept the alternate hypothesis that men are taller than women.
 
-## SNPs affected height
+# SNPs affected height
 https://www.snpedia.com/index.php/Height cites 
 > nature SNP rs1042725 is associated with height (P = 4E-8) in a study involving over 20,000 individuals. The gene harboring this SNP, HMGA2, is a strong biological
 > candidate for having an influence on height, since rare, severe mutations in this gene are known to alter body size in mice and humans.
@@ -142,14 +165,15 @@ perl -ne 'm/user([0-9]+).+([ACGT])\s*([ACGT]).*/;if($1 lt $2){print $1."\t".$2.$
 
 While the C allele is associated with height (approx 0.4 cm increased adult height per C allele), it is perfectly reasonable to treat the three genotypes (CC,CT,TT) as groups and conduct an ANOVA.
 
+## Descriptive statistics
 ```{r heightsnps, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 read.table("rs1042725.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() %>% distinct -> rs1042725
 
 ```
 
-A contingency talbe of the genotypes
+A contingency table of the genotypes
 ```{r genocontingency, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-table(rs1042725$genotype)
+knitr::kable(rs1042725 %>% group_by(genotype) %>% dplyr::summarize(subjects=n()))
 ```
 
 We can perform a Hardy-Weinberg test to see if the allele frequencies are consistent with random mating
@@ -170,19 +194,6 @@ height_genopheno<-merge(user_heights,rs1042725,by = "user")
 
 `r nrow(height_genopheno)` have both genotype and phenotype
 
-Let's see if this SNP works regardless of sex
-```{r txheightsex, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-shapiro.test(height_genopheno$MetricHeight)
-p <- ggplot(height_genopheno, aes(sample = MetricHeight))
-p + stat_qq()  + theme_economist() + scale_fill_economist()
-
-lambda = BoxCox.lambda(height_genopheno$MetricHeight)
-height_transformed<-BoxCox(height_genopheno$MetricHeight, lambda)
-shapiro.test(height_transformed)
-```
-
-Uhh let's stick with the original data
-
 Do we see any difference in means?
 ```{r}
 height_genopheno %>% group_by(genotype,SexScrubbed) %>% dplyr::summarize(mean(MetricHeight),sd(MetricHeight)) -> height_by_gene_sex
@@ -190,7 +201,10 @@ names(height_by_gene_sex)<-c("genotype","sex","mean_height","stdev")
 knitr::kable(height_by_gene_sex)
 ggplot(height_genopheno, aes(SexScrubbed, MetricHeight,fill=genotype)) + geom_boxplot() + theme_economist() + scale_fill_economist()
 ```
+
 We would expect CC to be the tallest, then CT, then TT. Here it appears CT is a couple centimeters shorter than it should be, but that can be due to sampling error or confounds related to population structure. As mentioned, this allele is understood to explain only 0.3% of population variation in height.
+
+### The two-factor factorial ANOVA
 
 Are any of the differences significant?
 
@@ -212,6 +226,7 @@ A post-hoc can reveal which groups differ significantly.
 tukey<-TukeyHSD(fit)
 tukey
 ```
+
 The post-hoc reveals significant differencs between the CC and CT genotypes (p<0.05) but not the other pairwise comparisons.
 
 The interaction posthoc reveals that the significant difference (CT-CC) is isolated to females (CT:Female-CC:Female adj p-value=`r tukey[["genotype:SexScrubbed"]][1,4]`)
@@ -219,8 +234,8 @@ The interaction posthoc reveals that the significant difference (CT-CC) is isola
 # Lactose intolerance
 rs4988235(G) and rs182549(C) are highly predictive of lactose intolerance.
 
-## Descriptive statistics
-### Phenotypes
+
+## Data cleaning
 ```{r}
 scrubLactose<-function(x){
   if(str_detect(x,"[Ii]ntolerant")){
@@ -234,12 +249,18 @@ scrubLactose<-function(x){
   }
   return(NA_character_)
 }
+```
 
+## Descriptive statistics
+### Phenotypes
+```{r}
 phenotypes$LactoseScrubbed<-as.factor(unlist(sapply(phenotypes$Lactose.intolerance,scrubLactose)))
 phenotypes %>% filter(!is.na(LactoseScrubbed)) %>% dplyr::select(user_id,LactoseScrubbed) %>% rename(user=user_id) %>% distinct -> user_lactose
-knitr::kable(user_lactose %>% group_by(LactoseScrubbed) %>% dplyr::summarize(count=n()))
+knitr::kable(user_lactose %>% group_by(LactoseScrubbed) %>% dplyr::summarize(count=n()),caption="Lactose phenotypes")
 ```
+
 ### Genotypes
+For the purposes of the Pearson's Chi-squared test I combine the two genotypes into a _haplotype_ (e.g. `AG/CT`).
 ```{r}
 read.table("rs4988235.rs.clean.txt",col.names=c("user","rs4988235")) %>% filter(rs4988235 %in% c('AA','AG','GG')) %>% mutate(rs4988235_dose = ifelse(rs4988235=='GG',2,ifelse(rs4988235=='AG',1,0))) %>% droplevels() %>% distinct -> rs4988235
 
@@ -247,20 +268,40 @@ read.table("rs182549.rs.clean.txt",col.names=c("user","rs182549")) %>% filter(rs
 
 alllactose_genopheno<-merge(merge(user_lactose,rs4988235,by = "user",all=FALSE),rs182549,by = "user",all=FALSE)
 
-alllactose_genopheno %>% group_by(LactoseScrubbed,rs4988235,rs182549) %>% dplyr::summarize(observed=n()) -> lactosect
+#alllactose_genopheno %>% group_by(LactoseScrubbed,rs4988235,rs182549) %>% dplyr::summarize(observed=n()) -> lactosect
 
-#this looks awful, lets do the math and display a unified table
+
+#the default contingency table looks awful, lets do the math and display a unified table
 table(alllactose_genopheno$LactoseScrubbed,alllactose_genopheno$rs4988235,alllactose_genopheno$rs182549) -> al_ct
 p_tot<-as.array(margin.table(al_ct,1))
 p_rs4988235<-as.array(margin.table(al_ct,2))
 p_rs182549<-as.array(margin.table(al_ct,3))
 
-lactosect$expected<-round(p_tot[lactosect$LactoseScrubbed]/sum(p_tot) * p_rs4988235[lactosect$rs4988235]/sum(p_rs4988235) * p_rs182549[lactosect$rs182549]/sum(p_rs182549) * margin.table(al_ct),2)
-lactosect$prop<-round(lactosect$observed/lactosect$expected,2)
+alllactose_genopheno %>% xtabs(formula = ~ LactoseScrubbed+rs4988235+rs182549)  %>% as.data.frame() %>% dplyr::arrange(LactoseScrubbed,rs4988235,rs182549) %>% rename(obs = Freq) -> agd
+
+agd$expected<-round(p_tot[agd$LactoseScrubbed]*p_rs4988235[agd$rs4988235]*p_rs182549[agd$rs182549]/margin.table(al_ct)^2,2)
+
+agd$prop<-round(agd$obs/agd$expected,2)
 
 ct_for_stats<-table(phenotype=alllactose_genopheno$LactoseScrubbed,genotype=paste(alllactose_genopheno$rs4988235,alllactose_genopheno$rs182549,sep="/"))
 
-chisq.test(ct_for_stats)
+chi_res<-chisq.test(ct_for_stats)
+chi_res
+
+knitr::kable(agd,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance")
+
+
+```
+
+Which combinations differ? There are a 18 choose 2 two-way comparisons to make. I am most curious about the high risk GG/CC allele
+```{r}
+GGCC_vs_everythingelse<-rbind(ct_for_stats[,5],rowSums(ct_for_stats[,-5]))
+chisq.test(GGCC_vs_everythingelse)
+```
+...and the low-risk AA/TT allele...
+```{r}
+AATT_vs_everythingelse<-rbind(ct_for_stats[,1],rowSums(ct_for_stats[,-1]))
+chisq.test(AATT_vs_everythingelse)
 ```
 
 # Eye Color
@@ -268,8 +309,9 @@ Kayser et al ["Eye color and the prediction of complex phenotypes from genotypes
 
 We can examine each of these snps individually and in tandem.
 
-Let's map the alternate allele to a dose response, so homozygous alternate = 2, heterozygous = 1, and homozygous reference = 0. Then we can use logistic regression with continuous (or at least ordinal), regressors.
+Let's map the alternate allele to a ordinal alterante allele gene dose, so homozygous alternate = 2, heterozygous = 1, and homozygous reference = 0. Then we can use logistic regression with continuous (or at least ordinal), regressors.
 
+## Data cleaning
 ```{r}
 cleanEyes<-function(x){
   if(str_detect(x,"[bB]lue") & str_detect(x,"[Gg]reen")){
@@ -312,47 +354,53 @@ read.table("rs1393350.rs.clean.txt",col.names=c("user","rs1393350")) %>% filter(
 
 #ref C
 read.table("rs12203592.rs.clean.txt",col.names=c("user","rs12203592")) %>% filter(rs12203592 %in% c('CC','CT','TT')) %>% mutate(rs12203592_dose = ifelse(rs12203592=='TT',2,ifelse(rs12203592=='CT',1,0))) %>% droplevels() %>% distinct -> rs12203592
- 
+
 
 
 
 Reduce(function(x, y) merge(x, y, by="user", all=TRUE), list(rs12913832,rs1800407,rs12896399,rs16891982,rs1393350,rs12203592)) %>% distinct -> alleyes
 
 alleyes_genopheno<-merge(user_eyes,alleyes,by = "user",all=FALSE)
+```
 
-#test against all other variables
-#http://stats.stackexchange.com/questions/60817/significance-of-categorical-predictor-in-logistic-regression
-
+## Logistic regression using glm
+For simplicity, let's just look at this from an additive model.
+```{r}
 reg = glm(cleanEyes~rs12913832_dose+rs1800407_dose+rs12896399_dose+rs16891982_dose+rs1393350_dose+rs12203592_dose,family=binomial,data=alleyes_genopheno)
 summary(reg)
-
 ```
+
 Let's look the highly signficant (P<0.001) SNPs individually, outside the model, from a categorical standpoint to see if our dose values make any sense.
 
+### rs12913832
 ```{r}
 snp_of_interest<-"rs12913832"
 ```
 
-```{r soi}
+```{r soi, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 eyes_rs<-merge(user_eyes,eval(parse(text=snp_of_interest)),by = "user")
 
 eyes_rs_ct<-table(eyes_rs$cleanEyes,eyes_rs[,snp_of_interest])
-knitr::kable(eyes_rs_ct)
+attr(eyes_rs_ct,"dimnames")[[2]]<-paste("obs_",attr(eyes_rs_ct,"dimnames")[[2]],sep="")
 
-#prop.table(eyes_rs12896399_ct)
-#prop.table(eyes_rs12896399_ct,1)
-#prop.table(eyes_rs12896399_ct,2)
+expected <- round(as.array(margin.table(eyes_rs_ct,1)) %*%
+  t(as.array(margin.table(eyes_rs_ct,2))) / margin.table(eyes_rs_ct),2)
+attr(expected,"dimnames")[[2]]<-paste("exp_",attr(expected,"dimnames")[[2]],sep="")
 
-expected <- as.array(margin.table(eyes_rs_ct,1)) %*%
-  t(as.array(margin.table(eyes_rs_ct,2))) / margin.table(eyes_rs_ct)
+knitr::kable(cbind(eyes_rs_ct,expected), caption=snp_of_interest)
 
-knitr::kable(expected)
 chisq.test(eyes_rs_ct)
 ```
 
+### rs16891982
+```{r}
+snp_of_interest<-"rs16891982"
+```
+```{r rs16891982, ref.label='soi', echo=TRUE, message=FALSE, cache=FALSE}
+```
+
+This script can be found on [https://github.com/leipzig/INFO812_opensnp](https://github.com/leipzig/INFO812_opensnp).
 
 ```{r}
-snp_of_interest<-"rs1393350"
-```
-```{r rs1393350, ref.label='soi', echo=TRUE, message=FALSE, cache=FALSE}
+sessionInfo()
 ```
