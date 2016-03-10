@@ -360,10 +360,10 @@ HWE.test(genotype(HWE_compliant_genotypes),exact=TRUE)</code></pre>
 ## 
 ## 
 ##               Observed      95% CI                         NA's
-##   Overall D   -9.499934e-03 (-2.043279e-02,  1.938921e-03) 0   
-##   Overall D'  -4.407783e-02 (-9.545054e-02,  7.799775e-03) 0   
-##   Overall r    3.819502e-02 (-7.799775e-03,  8.201469e-02) 0   
-##   Overall R^2  1.458860e-03 ( 2.279027e-05,  1.001310e-02) 0   
+##   Overall D   -9.499934e-03 (-2.082622e-02,  1.258015e-03) 0   
+##   Overall D'  -4.407783e-02 (-9.803131e-02,  5.050464e-03) 0   
+##   Overall r    3.819502e-02 (-5.050464e-03,  8.399173e-02) 0   
+##   Overall R^2  1.458860e-03 ( 3.818054e-06,  6.787704e-03) 0   
 ##               Contains Zero?
 ##   Overall D   YES           
 ##   Overall D'  YES           
@@ -573,11 +573,13 @@ chi_res&lt;-chisq.test(ct_for_stats)</code></pre>
 ## 
 ## data:  ct_for_stats
 ## X-squared = 53.8, df = 5, p-value = 2.304e-10</code></pre>
-<pre class="r"><code>knitr::kable(agd,caption=&quot;Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance&quot;)</code></pre>
+<pre class="r"><code>agd[agd$obs&gt;4,] -&gt; agdfilt
+knitr::kable(agdfilt,caption=&quot;Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance&quot;)</code></pre>
 <table>
 <caption>Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance</caption>
 <thead>
 <tr class="header">
+<th align="left"></th>
 <th align="left">LactoseScrubbed</th>
 <th align="left">rs4988235</th>
 <th align="left">rs182549</th>
@@ -588,22 +590,7 @@ chi_res&lt;-chisq.test(ct_for_stats)</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">Intolerant</td>
-<td align="left">AA</td>
-<td align="left">CC</td>
-<td align="right">0</td>
-<td align="right">6.49</td>
-<td align="right">0.00</td>
-</tr>
-<tr class="even">
-<td align="left">Intolerant</td>
-<td align="left">AA</td>
-<td align="left">CT</td>
-<td align="right">0</td>
-<td align="right">10.24</td>
-<td align="right">0.00</td>
-</tr>
-<tr class="odd">
+<td align="left">3</td>
 <td align="left">Intolerant</td>
 <td align="left">AA</td>
 <td align="left">TT</td>
@@ -612,14 +599,7 @@ chi_res&lt;-chisq.test(ct_for_stats)</code></pre>
 <td align="right">1.59</td>
 </tr>
 <tr class="even">
-<td align="left">Intolerant</td>
-<td align="left">AG</td>
-<td align="left">CC</td>
-<td align="right">1</td>
-<td align="right">7.43</td>
-<td align="right">0.13</td>
-</tr>
-<tr class="odd">
+<td align="left">5</td>
 <td align="left">Intolerant</td>
 <td align="left">AG</td>
 <td align="left">CT</td>
@@ -627,15 +607,8 @@ chi_res&lt;-chisq.test(ct_for_stats)</code></pre>
 <td align="right">11.72</td>
 <td align="right">1.45</td>
 </tr>
-<tr class="even">
-<td align="left">Intolerant</td>
-<td align="left">AG</td>
-<td align="left">TT</td>
-<td align="right">1</td>
-<td align="right">10.79</td>
-<td align="right">0.09</td>
-</tr>
 <tr class="odd">
+<td align="left">7</td>
 <td align="left">Intolerant</td>
 <td align="left">GG</td>
 <td align="left">CC</td>
@@ -644,38 +617,7 @@ chi_res&lt;-chisq.test(ct_for_stats)</code></pre>
 <td align="right">8.32</td>
 </tr>
 <tr class="even">
-<td align="left">Intolerant</td>
-<td align="left">GG</td>
-<td align="left">CT</td>
-<td align="right">2</td>
-<td align="right">7.40</td>
-<td align="right">0.27</td>
-</tr>
-<tr class="odd">
-<td align="left">Intolerant</td>
-<td align="left">GG</td>
-<td align="left">TT</td>
-<td align="right">0</td>
-<td align="right">6.81</td>
-<td align="right">0.00</td>
-</tr>
-<tr class="even">
-<td align="left">Tolerant</td>
-<td align="left">AA</td>
-<td align="left">CC</td>
-<td align="right">0</td>
-<td align="right">15.84</td>
-<td align="right">0.00</td>
-</tr>
-<tr class="odd">
-<td align="left">Tolerant</td>
-<td align="left">AA</td>
-<td align="left">CT</td>
-<td align="right">0</td>
-<td align="right">24.99</td>
-<td align="right">0.00</td>
-</tr>
-<tr class="even">
+<td align="left">12</td>
 <td align="left">Tolerant</td>
 <td align="left">AA</td>
 <td align="left">TT</td>
@@ -684,14 +626,7 @@ chi_res&lt;-chisq.test(ct_for_stats)</code></pre>
 <td align="right">3.26</td>
 </tr>
 <tr class="odd">
-<td align="left">Tolerant</td>
-<td align="left">AG</td>
-<td align="left">CC</td>
-<td align="right">0</td>
-<td align="right">18.12</td>
-<td align="right">0.00</td>
-</tr>
-<tr class="even">
+<td align="left">14</td>
 <td align="left">Tolerant</td>
 <td align="left">AG</td>
 <td align="left">CT</td>
@@ -699,15 +634,8 @@ chi_res&lt;-chisq.test(ct_for_stats)</code></pre>
 <td align="right">28.60</td>
 <td align="right">2.87</td>
 </tr>
-<tr class="odd">
-<td align="left">Tolerant</td>
-<td align="left">AG</td>
-<td align="left">TT</td>
-<td align="right">2</td>
-<td align="right">26.33</td>
-<td align="right">0.08</td>
-</tr>
 <tr class="even">
+<td align="left">16</td>
 <td align="left">Tolerant</td>
 <td align="left">GG</td>
 <td align="left">CC</td>
@@ -715,25 +643,9 @@ chi_res&lt;-chisq.test(ct_for_stats)</code></pre>
 <td align="right">11.44</td>
 <td align="right">2.10</td>
 </tr>
-<tr class="odd">
-<td align="left">Tolerant</td>
-<td align="left">GG</td>
-<td align="left">CT</td>
-<td align="right">0</td>
-<td align="right">18.05</td>
-<td align="right">0.00</td>
-</tr>
-<tr class="even">
-<td align="left">Tolerant</td>
-<td align="left">GG</td>
-<td align="left">TT</td>
-<td align="right">0</td>
-<td align="right">16.62</td>
-<td align="right">0.00</td>
-</tr>
 </tbody>
 </table>
-<p>Which combinations differ? There are a 18 choose 2 two-way comparisons to make. I am most curious about the high risk GG/CC allele</p>
+<p>Which combinations differ? There are several 2 two-way comparisons to make. I am most curious about the high risk GG/CC allele</p>
 <pre class="r"><code>GGCC_vs_everythingelse&lt;-rbind(ct_for_stats[,5],rowSums(ct_for_stats[,-5]))
 chisq.test(GGCC_vs_everythingelse)</code></pre>
 <pre><code>## 
@@ -843,134 +755,6 @@ summary(reg)</code></pre>
 ## AIC: 374.19
 ## 
 ## Number of Fisher Scoring iterations: 7</code></pre>
-<p>Let’s look the highly signficant (P&lt;0.001) SNPs individually, outside the model, from a categorical standpoint to see if our dose values make any sense.</p>
-<div id="rs12913832" class="section level3">
-<h3>rs12913832</h3>
-<pre class="r"><code>snp_of_interest&lt;-&quot;rs12913832&quot;</code></pre>
-<pre class="r"><code>eyes_rs&lt;-merge(user_eyes,eval(parse(text=snp_of_interest)),by = &quot;user&quot;)
-
-eyes_rs_ct&lt;-table(eyes_rs$cleanEyes,eyes_rs[,snp_of_interest])
-attr(eyes_rs_ct,&quot;dimnames&quot;)[[2]]&lt;-paste(&quot;obs_&quot;,attr(eyes_rs_ct,&quot;dimnames&quot;)[[2]],sep=&quot;&quot;)
-
-expected &lt;- round(as.array(margin.table(eyes_rs_ct,1)) %*%
-  t(as.array(margin.table(eyes_rs_ct,2))) / margin.table(eyes_rs_ct),2)
-attr(expected,&quot;dimnames&quot;)[[2]]&lt;-paste(&quot;exp_&quot;,attr(expected,&quot;dimnames&quot;)[[2]],sep=&quot;&quot;)
-
-knitr::kable(cbind(eyes_rs_ct,expected), caption=snp_of_interest)</code></pre>
-<table>
-<caption>rs12913832</caption>
-<thead>
-<tr class="header">
-<th align="left"></th>
-<th align="right">obs_AA</th>
-<th align="right">obs_AG</th>
-<th align="right">obs_GG</th>
-<th align="right">exp_obs_AA</th>
-<th align="right">exp_obs_AG</th>
-<th align="right">exp_obs_GG</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">Blue</td>
-<td align="right">0</td>
-<td align="right">5</td>
-<td align="right">167</td>
-<td align="right">26.96</td>
-<td align="right">64.15</td>
-<td align="right">80.89</td>
-</tr>
-<tr class="even">
-<td align="left">Brown</td>
-<td align="right">94</td>
-<td align="right">204</td>
-<td align="right">76</td>
-<td align="right">58.63</td>
-<td align="right">139.48</td>
-<td align="right">175.89</td>
-</tr>
-<tr class="odd">
-<td align="left">Green</td>
-<td align="right">1</td>
-<td align="right">17</td>
-<td align="right">42</td>
-<td align="right">9.41</td>
-<td align="right">22.38</td>
-<td align="right">28.22</td>
-</tr>
-</tbody>
-</table>
-<pre class="r"><code>chisq.test(eyes_rs_ct)</code></pre>
-<pre><code>## 
-##  Pearson's Chi-squared test
-## 
-## data:  eyes_rs_ct
-## X-squared = 296.61, df = 4, p-value &lt; 2.2e-16</code></pre>
-</div>
-<div id="rs16891982" class="section level3">
-<h3>rs16891982</h3>
-<pre class="r"><code>snp_of_interest&lt;-&quot;rs16891982&quot;</code></pre>
-<pre class="r"><code>eyes_rs&lt;-merge(user_eyes,eval(parse(text=snp_of_interest)),by = &quot;user&quot;)
-
-eyes_rs_ct&lt;-table(eyes_rs$cleanEyes,eyes_rs[,snp_of_interest])
-attr(eyes_rs_ct,&quot;dimnames&quot;)[[2]]&lt;-paste(&quot;obs_&quot;,attr(eyes_rs_ct,&quot;dimnames&quot;)[[2]],sep=&quot;&quot;)
-
-expected &lt;- round(as.array(margin.table(eyes_rs_ct,1)) %*%
-  t(as.array(margin.table(eyes_rs_ct,2))) / margin.table(eyes_rs_ct),2)
-attr(expected,&quot;dimnames&quot;)[[2]]&lt;-paste(&quot;exp_&quot;,attr(expected,&quot;dimnames&quot;)[[2]],sep=&quot;&quot;)
-
-knitr::kable(cbind(eyes_rs_ct,expected), caption=snp_of_interest)</code></pre>
-<table>
-<caption>rs16891982</caption>
-<thead>
-<tr class="header">
-<th align="left"></th>
-<th align="right">obs_CC</th>
-<th align="right">obs_CG</th>
-<th align="right">obs_GG</th>
-<th align="right">exp_obs_CC</th>
-<th align="right">exp_obs_CG</th>
-<th align="right">exp_obs_GG</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">Blue</td>
-<td align="right">0</td>
-<td align="right">8</td>
-<td align="right">146</td>
-<td align="right">10.08</td>
-<td align="right">21.28</td>
-<td align="right">122.64</td>
-</tr>
-<tr class="even">
-<td align="left">Brown</td>
-<td align="right">36</td>
-<td align="right">60</td>
-<td align="right">247</td>
-<td align="right">22.45</td>
-<td align="right">47.40</td>
-<td align="right">273.15</td>
-</tr>
-<tr class="odd">
-<td align="left">Green</td>
-<td align="right">0</td>
-<td align="right">8</td>
-<td align="right">45</td>
-<td align="right">3.47</td>
-<td align="right">7.32</td>
-<td align="right">42.21</td>
-</tr>
-</tbody>
-</table>
-<pre class="r"><code>chisq.test(eyes_rs_ct)</code></pre>
-<pre><code>## Warning in chisq.test(eyes_rs_ct): Chi-squared approximation may be
-## incorrect</code></pre>
-<pre><code>## 
-##  Pearson's Chi-squared test
-## 
-## data:  eyes_rs_ct
-## X-squared = 40.566, df = 4, p-value = 3.306e-08</code></pre>
 <p>This script can be found on <a href="https://github.com/leipzig/INFO812_opensnp"><a href="https://github.com/leipzig/INFO812_opensnp" class="uri">https://github.com/leipzig/INFO812_opensnp</a></a>.</p>
 <pre class="r"><code>sessionInfo()</code></pre>
 <pre><code>## R version 3.2.3 (2015-12-10)
@@ -1015,7 +799,6 @@ knitr::kable(cbind(eyes_rs_ct,expected), caption=snp_of_interest)</code></pre>
 ## [37] RColorBrewer_1.1-2  tools_3.2.3         parallel_3.2.3     
 ## [40] pbkrtest_0.4-6      yaml_2.1.13         colorspace_1.2-6   
 ## [43] cluster_2.0.3       knitr_1.12.3        quantreg_5.19</code></pre>
-</div>
 </div>
 </div>
 
