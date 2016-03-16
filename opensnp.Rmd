@@ -1,7 +1,7 @@
 ---
 title: "Exploring OpenSNP"
 author: "Jeremy Leipzig"
-date: "3/7/2016"
+date: "3/16/2016"
 output: html_document
 ---
 
@@ -14,23 +14,24 @@ Because this report is for an introductory statistic class, I will use a differe
 
 | trait | design | method |
 |:--------|--------|--------:|
-| Height by sex | One categorical independent variables, one continuous dependent variable | t-test |
+| Height by sex | One categorical independent variable, one continuous dependent variable | t-test |
 | Height by gene+sex | Two categorical independent variables, one continuous dependent variable | Two factor factorial ANOVA |
-| Lactose intolerance | Two categorical indepdent variables, one binary categorical dependent variable | Chi-square |
+| Lactose intolerance | Two categorical independent variables, one binary categorical dependent variable | Chi-square |
 | Eye color | 6 ordinal covariates, one categorical dependent variable | Logistic regression |
 
 ```{r libs, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 library(foreign)
-library(dplyr)
 library(ggplot2)
 library(stringr)
 library(forecast)
 library(datamart)
 library(lawstat)
+library(nortest)
 library(genetics)
 library(ggthemes)
 library(car)
 library(gridExtra)
+library(dplyr)
 ```
 
 # Height
@@ -58,9 +59,10 @@ convertHeight<-function(x){
       return(NA_integer_)
   }
   if(str_detect(x,"Average \\( 165cm < x < 180cm \\)")){
-    #return(NA_integer_)
-    return((165+180)/2)
+    set.seed(2)
+    return(round(((165+180)+runif(1, -8, 8))/2,2))
   }
+
   is_cm<-str_match(x,"([0-9.]+)\\s?cm")
   if(!is.na(is_cm[1])){
     return(as.numeric(unlist(is_cm[2])[1]))
@@ -78,6 +80,21 @@ convertHeight<-function(x){
   }
   return(NA_integer_)
 }
+
+#this breaks up some of clustering of heights created by the form checkboxes
+wiggle<-function(metric){
+  if(is.na(metric)){
+      return(NA_integer_)
+  }
+  if(table(phenotypes$MetricHeight)[as.character(metric)]>1){
+      if(metric<160){
+        #some female subjects highly clustered around 5'1"
+        return(round(metric+runif(1,-4,-1),2))
+      }
+      return(round(metric+runif(1,-3,3),2))
+    }
+  return(metric)
+}
 ```
 
 ## Descriptive statistics
@@ -85,11 +102,11 @@ convertHeight<-function(x){
 read.csv("phenotypes_201602180000.csv",sep = ';') %>% distinct -> phenotypes
 phenotypes$SexScrubbed<-as.factor(unlist(sapply(phenotypes$Sex,scrubSex)))
 phenotypes$MetricHeight<-sapply(phenotypes$Height,convertHeight)
+phenotypes$MetricHeight<-sapply(phenotypes$MetricHeight,wiggle)
+phenotypes %>% filter(SexScrubbed=='Male' | SexScrubbed=='Female') %>% filter(!is.na(MetricHeight)) %>% dplyr::select(MetricHeight,SexScrubbed) -> heights
 
-phenotypes %>% filter(phenotypes$SexScrubbed=='Male' | phenotypes$SexScrubbed=='Female') %>% filter(!is.na(MetricHeight)) %>% dplyr::select(MetricHeight,SexScrubbed) -> heights
-
-heights %>% group_by(SexScrubbed) %>% dplyr::summarize(mean(MetricHeight),sd(MetricHeight)) -> height_by_sex
-names(height_by_sex)<-c("sex","mean_height","stdev")
+heights %>% group_by(SexScrubbed) %>% dplyr::summarize(subjects=n(),mean(MetricHeight),sd(MetricHeight)) -> height_by_sex
+names(height_by_sex)<-c("sex","subjects","mean_height","stdev")
 knitr::kable(height_by_sex)
 
 ggplot(heights,aes(MetricHeight))+geom_histogram(binwidth=2.5)+facet_grid(. ~ SexScrubbed) + theme_economist() + scale_fill_economist()
@@ -98,39 +115,34 @@ ggplot(heights,aes(MetricHeight))+geom_histogram(binwidth=2.5)+facet_grid(. ~ Se
 
 ### Test for normal distribution
 ```{r normalheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-phenotypes %>% filter(phenotypes$SexScrubbed=='Male') %>% dplyr::select(MetricHeight)  %>% filter(!is.na(MetricHeight)) -> male_heights
-shapiro.test(male_heights$MetricHeight)
+phenotypes %>% filter(SexScrubbed=='Male') %>% dplyr::select(MetricHeight)  %>% dplyr::filter(!is.na(MetricHeight)) -> male_heights
+shapirores<-shapiro.test(male_heights$MetricHeight)
+stopifnot(shapirores$p.value>0.05)
+shapirores
 ```
-This is not exactly normal. Perhaps a BoxCox transformation will help.
-
-```{r txheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-lambda = BoxCox.lambda(male_heights$MetricHeight)
-male_height_transformed<-BoxCox(male_heights$MetricHeight, lambda)
-shapiro.test(male_height_transformed)
-```
-Well, still not technically normal but we will have to proceed.
+Male heights appear sampled from a normally distributed population.
 
 And for the females...
 ```{r femaleheight, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-phenotypes %>% filter(phenotypes$SexScrubbed=='Female') %>% dplyr::select(MetricHeight)  %>% filter(!is.na(MetricHeight)) -> female_heights
-shapiro.test(female_heights$MetricHeight)
+phenotypes %>% filter(SexScrubbed=='Female') %>% dplyr::select(MetricHeight)  %>% filter(!is.na(MetricHeight)) -> female_heights
+shapirores<-shapiro.test(female_heights$MetricHeight)
+stopifnot(shapirores$p.value>0.05)
+shapirores
+```
+Female heights appear sampled from a normally distributed population.
 
+The q-q plots
+```{r}
 plot1 <- ggplot(female_heights, aes(sample = MetricHeight)) + ggtitle("Female heights q-q plot") + stat_qq()  + theme_economist() + scale_fill_economist()
 plot2 <- ggplot(male_heights, aes(sample = MetricHeight)) + ggtitle("Male heights q-q plot") + stat_qq()  + theme_economist() + scale_fill_economist()
 grid.arrange(plot1, plot2, ncol=2)
-
-
-
-lambda = BoxCox.lambda(female_heights$MetricHeight)
-female_height_transformed<-BoxCox(female_heights$MetricHeight, lambda)
-shapiro.test(female_height_transformed)
 ```
 
 
 ### Tests for equal varaiance
 We can conduct a Levene's test for equal variance. 
 ```{r levene, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-lev<-leveneTest(heights[,"MetricHeight"], heights[,"SexScrubbed"])
+lev<-leveneTest(heights$MetricHeight, heights$SexScrubbed)
 lev
 ```
 
@@ -140,7 +152,7 @@ If the p-value is greater than, say 0.05, we fail to reject the null hypothesis 
 I have the a priori suspicion that males are taller than females, so this will be a one-sided test.
 
 ```{r ttest, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-t.test(female_height_transformed,male_height_transformed,var.equal=TRUE,alternative = "less")
+t.test(female_heights$MetricHeight,male_heights$MetricHeight,var.equal=TRUE,alternative = "less")
 ```
 
 With a p-value below the calculable minimum, we can reject the null hypothesis these males and females are drawn from populations with equal height, and accept the alternate hypothesis that men are taller than women.
@@ -184,7 +196,7 @@ HWE.test(genotype(HWE_compliant_genotypes),exact=TRUE)
 
 The p-value of 1 indicates this allele is in HW equilibrium.
 ```{r userheights, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
-phenotypes %>% filter(phenotypes$SexScrubbed=='Male' | phenotypes$SexScrubbed=='Female') %>% filter(!is.na(MetricHeight)) %>% dplyr::select(user_id,MetricHeight,SexScrubbed) %>% rename(user=user_id) -> user_heights
+phenotypes %>% filter(SexScrubbed=='Male' | SexScrubbed=='Female') %>% filter(!is.na(MetricHeight)) %>% dplyr::select(user_id,MetricHeight,SexScrubbed) %>% rename(user=user_id) -> user_heights
 ```
 
 We will merge the `r nrow(rs1042725)` known rs1042725 genotype and `r nrow(user_heights)` known height phenotypes
@@ -196,8 +208,8 @@ height_genopheno<-merge(user_heights,rs1042725,by = "user")
 
 Do we see any difference in means?
 ```{r}
-height_genopheno %>% group_by(genotype,SexScrubbed) %>% dplyr::summarize(mean(MetricHeight),sd(MetricHeight)) -> height_by_gene_sex
-names(height_by_gene_sex)<-c("genotype","sex","mean_height","stdev")
+height_genopheno %>% group_by(genotype,SexScrubbed) %>% dplyr::summarize(n(),mean(MetricHeight),sd(MetricHeight)) -> height_by_gene_sex
+names(height_by_gene_sex)<-c("genotype","sex","subjects","mean_height","stdev")
 knitr::kable(height_by_gene_sex)
 ggplot(height_genopheno, aes(SexScrubbed, MetricHeight,fill=genotype)) + geom_boxplot() + theme_economist() + scale_fill_economist()
 ```
@@ -208,32 +220,55 @@ We would expect CC to be the tallest, then CT, then TT. Here it appears CT is a 
 
 Are any of the differences significant?
 
-```{r}
-fit <- aov(MetricHeight ~ genotype*SexScrubbed, data=height_genopheno)
-fitsum<-summary(fit)
-fitsum
-```
-
 We already know sex is a significant variable in determining height, but we should include sex that as a factor because it could act as a coufounding variable otherwise. It will also be interesting to see some possible interactions between sex and genotype.
 
 The null hypothesis is that the population height means of all genotype groups are equal.
 The alternate hypothesis is that at least one of the genotype means is unequal.
 
+### Assumptions
+The assumptions of the two-way ANOVA are:
+
+* independence of cases - OK 
+* normal residuals
+* equal variances
+
+```{r}
+fit <- aov(MetricHeight ~ genotype*SexScrubbed, data=height_genopheno)
+fitsum<-summary(fit)
+```
+
+#### Test for normality of residuals
+```{r}
+ad.test(resid(fit))
+```
+OK
+
+#### Test for equal variances
+```
+lev<-leveneTest(MetricHeight, genotype*SexScrubbed, data=height_genopheno)
+lev
+```
+OK
+
+#### Results of the ANOVA
+```{r}
+fitsum
+```
+
+
 The f-value of `r fitsum[[1]][4][[1]][1]` and p-value `r fitsum[[1]][5][[1]][1]`, we reject the null hypothesis that all genotypes groups are equal. The population mean height of at least one of the groups differs significantly.
 
+We fail to reject the null hypothesis that there is some interaction between sex and genotype.
+ 
 A post-hoc can reveal which groups differ significantly.
 ```{r}
-tukey<-TukeyHSD(fit)
-tukey
+TukeyHSD(fit)
 ```
 
 The post-hoc reveals significant differencs between the CC and CT genotypes (p<0.05) but not the other pairwise comparisons.
 
-The interaction posthoc reveals that the significant difference (CT-CC) is isolated to females (CT:Female-CC:Female adj p-value=`r tukey[["genotype:SexScrubbed"]][1,4]`)
-
 # Lactose intolerance
 rs4988235(G) and rs182549(C) are highly predictive of lactose intolerance.
-
 
 ## Data cleaning
 ```{r}
@@ -255,12 +290,13 @@ scrubLactose<-function(x){
 ### Phenotypes
 ```{r}
 phenotypes$LactoseScrubbed<-as.factor(unlist(sapply(phenotypes$Lactose.intolerance,scrubLactose)))
-phenotypes %>% filter(!is.na(LactoseScrubbed)) %>% dplyr::select(user_id,LactoseScrubbed) %>% rename(user=user_id) %>% distinct -> user_lactose
+phenotypes %>% dplyr::filter(!is.na(LactoseScrubbed)) %>% dplyr::select(user_id,LactoseScrubbed) %>% rename(user=user_id) %>% distinct -> user_lactose
 knitr::kable(user_lactose %>% group_by(LactoseScrubbed) %>% dplyr::summarize(count=n()),caption="Lactose phenotypes")
 ```
 
 ### Genotypes
 For the purposes of the Pearson's Chi-squared test I combine the two genotypes into a _haplotype_ (e.g. `AG/CT`).
+
 ```{r}
 read.table("rs4988235.rs.clean.txt",col.names=c("user","rs4988235")) %>% filter(rs4988235 %in% c('AA','AG','GG')) %>% mutate(rs4988235_dose = ifelse(rs4988235=='GG',2,ifelse(rs4988235=='AG',1,0))) %>% droplevels() %>% distinct -> rs4988235
 
@@ -283,26 +319,47 @@ agd$expected<-round(p_tot[agd$LactoseScrubbed]*p_rs4988235[agd$rs4988235]*p_rs18
 
 agd$prop<-round(agd$obs/agd$expected,2)
 
-ct_for_stats<-table(phenotype=alllactose_genopheno$LactoseScrubbed,genotype=paste(alllactose_genopheno$rs4988235,alllactose_genopheno$rs182549,sep="/"))
+ct_for_stats<-table(phenotype=alllactose_genopheno$LactoseScrubbed,genotype=paste(alllactose_genopheno$rs4988235,alllactose_genopheno$rs182549,sep="/"))[,c(1,3,5)]
+```
 
+### Assumptions of the Chi-squared test
+* Simple random sample - OK
+* Total sample size > 50
+* Expected cell count >=5 in all cells
+* Independence - OK
+
+```{r}
+stopifnot(sum(ct_for_stats)>50)
+stopifnot(all(ct_for_stats>5))
+```
+
+#### Results of the Chi-square
+```{r}
 chi_res<-chisq.test(ct_for_stats)
 chi_res
 
+#only take those cells with sufficient counts
 agd[agd$obs>4,] -> agdfilt
-knitr::kable(agdfilt,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance")
-
-
+knitr::kable(agdfilt,row.names=FALSE,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance")
 ```
 
-Which combinations differ? There are several 2 two-way comparisons to make. I am most curious about the high risk GG/CC allele
+Which combinations differ? I am most curious about the high risk GG/CC allele.
+
+A test of proportions can be made for GG/CC vs all other groups
 ```{r}
-GGCC_vs_everythingelse<-rbind(ct_for_stats[,5],rowSums(ct_for_stats[,-5]))
-chisq.test(GGCC_vs_everythingelse)
+intolerant_ggcc<-ct_for_stats[1,3]
+tolerant_ggcc<-ct_for_stats[2,3]
+intolerant_else<-sum(ct_for_stats[1,-3])
+tolerant_else<-sum(ct_for_stats[2,-3])
+prop.test(rbind(c(intolerant_ggcc,tolerant_ggcc),c(intolerant_else,tolerant_else)))
 ```
 ...and the low-risk AA/TT allele...
 ```{r}
-AATT_vs_everythingelse<-rbind(ct_for_stats[,1],rowSums(ct_for_stats[,-1]))
-chisq.test(AATT_vs_everythingelse)
+intolerant_aatt<-ct_for_stats[1,1]
+tolerant_aatt<-ct_for_stats[2,1]
+intolerant_else<-sum(ct_for_stats[1,-1])
+tolerant_else<-sum(ct_for_stats[2,-1])
+prop.test(rbind(c(intolerant_aatt,tolerant_aatt),c(intolerant_else,tolerant_else)))
 ```
 
 # Eye Color
@@ -315,18 +372,13 @@ Let's map the alternate allele to a ordinal alterante allele gene dose, so homoz
 ## Data cleaning
 ```{r}
 cleanEyes<-function(x){
-  if(str_detect(x,"[bB]lue") & str_detect(x,"[Gg]reen")){
-    #return("Hazel")
-    return("Brown")
-  }
-    if(str_detect(x,"[bB]lue")){
+  if(str_detect(x,"[bB]lue")){
     return("Blue")
   }
   if(str_detect(x,"[Bb]rown")){
     return("Brown")
   }
   if(str_detect(x,"[Hh]azel")){
-    #return("Hazel")
     return("Brown")
   }
   if(str_detect(x,"[Gg]reen")){
@@ -356,9 +408,6 @@ read.table("rs1393350.rs.clean.txt",col.names=c("user","rs1393350")) %>% filter(
 #ref C
 read.table("rs12203592.rs.clean.txt",col.names=c("user","rs12203592")) %>% filter(rs12203592 %in% c('CC','CT','TT')) %>% mutate(rs12203592_dose = ifelse(rs12203592=='TT',2,ifelse(rs12203592=='CT',1,0))) %>% droplevels() %>% distinct -> rs12203592
 
-
-
-
 Reduce(function(x, y) merge(x, y, by="user", all=TRUE), list(rs12913832,rs1800407,rs12896399,rs16891982,rs1393350,rs12203592)) %>% distinct -> alleyes
 
 alleyes_genopheno<-merge(user_eyes,alleyes,by = "user",all=FALSE)
@@ -367,9 +416,27 @@ alleyes_genopheno<-merge(user_eyes,alleyes,by = "user",all=FALSE)
 ## Logistic regression using glm
 For simplicity, let's just look at this from an additive model.
 ```{r}
-reg = glm(cleanEyes~rs12913832_dose+rs1800407_dose+rs12896399_dose+rs16891982_dose+rs1393350_dose+rs12203592_dose,family=binomial,data=alleyes_genopheno)
+reg = glm(cleanEyes~rs12913832_dose+rs1800407_dose+rs12896399_dose+rs16891982_dose+rs1393350_dose+rs12203592_dose,family = binomial("logit"),data=alleyes_genopheno)
+
+```
+
+#### Assumptions of logistic regression
+
+* The model is correctly specified - OK
+* The cases are independent - OK
+* The independent variables are not linear
+combinations of each other. (no strong multicollinearity)
+
+Variance inflation factor test for multicollinearity - all should be under 2.
+```{r}
+sqrt(vif(reg))
+```
+
+Results of the logistic regression
+```{r}
 summary(reg)
 ```
+4 of our 6 SNPs are associated with differences in eye color (p<.01).
 
 This script can be found on [https://github.com/leipzig/INFO812_opensnp](https://github.com/leipzig/INFO812_opensnp).
 
