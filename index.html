@@ -63,7 +63,7 @@ img {
 <div id="header">
 <h1 class="title">Exploring OpenSNP</h1>
 <h4 class="author"><em>Jeremy Leipzig</em></h4>
-<h4 class="date"><em>3/16/2016</em></h4>
+<h4 class="date"><em>3/21/2016</em></h4>
 </div>
 
 
@@ -741,7 +741,7 @@ prop.test(rbind(c(intolerant_aatt,tolerant_aatt),c(intolerant_else,tolerant_else
 <h1>Eye Color</h1>
 <p>Kayser et al <a href="http://www.sciencedirect.com/science/article/pii/S0960982209005971">“Eye color and the prediction of complex phenotypes from genotypes”</a> concluded that 6 SNPs (rs12913832 rs1800407 rs12896399 rs16891982 rs1393350 rs12203592) could predict blue, brown, and intermediate color with more than 90% accuracy.</p>
 <p>We can examine each of these snps individually and in tandem.</p>
-<p>Let’s map the alternate allele to a ordinal alterante allele gene dose, so homozygous alternate = 2, heterozygous = 1, and homozygous reference = 0. Then we can use logistic regression with continuous (or at least ordinal), regressors.</p>
+<p>Let’s map the alternate allele to a ordinal alterante allele gene dose, so homozygous alternate = 2, heterozygous = 1, and homozygous reference = 0. Then we can use logistic regression with, if not continuous, at least ordinal regressors.</p>
 <div id="data-cleaning-2" class="section level2">
 <h2>Data cleaning</h2>
 <pre class="r"><code>cleanEyes&lt;-function(x){
