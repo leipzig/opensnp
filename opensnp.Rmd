@@ -39,9 +39,10 @@ library(dplyr)
 ## Are men taller than women?
 This question has puzzled mankind for centuries. But now we can use our sample sets of 153 females and 227 males with height information to see if this is the case.
 
-The t-test has the following assumptions
-- Each of the two populations being compared should follow a normal distribution
-- the two populations being compared should have the same variance
+The t-test has the following assumptions:
+
+* Each of the two populations being compared should follow a normal distribution
+* the two populations being compared should have the same variance
 
 ## Data cleaning
 OpenSNP data uses free form text fields for phenotypic entry. The `sex` field is pretty tame, but the `height` entries use an disorderly mix of English and metric units and some fixed ranges. Here I use regexes to attempt to convert everything to centimeters.
@@ -147,7 +148,7 @@ lev<-leveneTest(heights$MetricHeight, heights$SexScrubbed)
 lev
 ```
 
-If the p-value is greater than, say 0.05, we fail to reject the null hypothesis that the variances from which the two populations are drawn are equal, and proceed. The p-value of `r lev$p.value` is a good thing.
+If the p-value is greater than, say 0.05, we fail to reject the null hypothesis that the variances from which the two populations are drawn are equal, and proceed. The p-value of `r lev[3][[1]][1]` is a good thing.
 
 ### The t-test
 I have the a priori suspicion that males are taller than females, so this will be a one-sided test.
@@ -181,7 +182,6 @@ While the C allele is associated with height (approx 0.4 cm increased adult heig
 ## Descriptive statistics
 ```{r heightsnps, echo=TRUE, message=FALSE, cache=FALSE, warning=FALSE}
 read.table("rs1042725.rs.clean.txt",col.names=c("user","genotype")) %>% filter(genotype %in% c('CC','CT','TT')) %>% droplevels() %>% distinct -> rs1042725
-
 ```
 
 A contingency table of the genotypes
@@ -304,9 +304,6 @@ read.table("rs4988235.rs.clean.txt",col.names=c("user","rs4988235")) %>% filter(
 read.table("rs182549.rs.clean.txt",col.names=c("user","rs182549")) %>% filter(rs182549 %in% c('TT','CT','CC')) %>% mutate(rs182549_dose = ifelse(rs182549=='CC',2,ifelse(rs182549=='CT',1,0))) %>% droplevels() %>% distinct -> rs182549
 
 alllactose_genopheno<-merge(merge(user_lactose,rs4988235,by = "user",all=FALSE),rs182549,by = "user",all=FALSE)
-
-#alllactose_genopheno %>% group_by(LactoseScrubbed,rs4988235,rs182549) %>% dplyr::summarize(observed=n()) -> lactosect
-
 
 #the default contingency table looks awful, lets do the math and display a unified table
 table(alllactose_genopheno$LactoseScrubbed,alllactose_genopheno$rs4988235,alllactose_genopheno$rs182549) -> al_ct
@@ -437,7 +434,7 @@ Results of the logistic regression
 ```{r}
 summary(reg)
 ```
-4 of our 6 SNPs are associated with differences in eye color (p<.01).
+4 of our 6 SNPs are associated with differences in eye color (p<.05).
 
 This script can be found on [https://github.com/leipzig/INFO812_opensnp](https://github.com/leipzig/INFO812_opensnp).
 

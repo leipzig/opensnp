@@ -122,7 +122,11 @@ library(dplyr)</code></pre>
 <div id="are-men-taller-than-women" class="section level2">
 <h2>Are men taller than women?</h2>
 <p>This question has puzzled mankind for centuries. But now we can use our sample sets of 153 females and 227 males with height information to see if this is the case.</p>
-<p>The t-test has the following assumptions - Each of the two populations being compared should follow a normal distribution - the two populations being compared should have the same variance</p>
+<p>The t-test has the following assumptions:</p>
+<ul>
+<li>Each of the two populations being compared should follow a normal distribution</li>
+<li>the two populations being compared should have the same variance</li>
+</ul>
 </div>
 <div id="data-cleaning" class="section level2">
 <h2>Data cleaning</h2>
@@ -255,7 +259,7 @@ lev</code></pre>
 ##       378                 
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
-<p>If the p-value is greater than, say 0.05, we fail to reject the null hypothesis that the variances from which the two populations are drawn are equal, and proceed. The p-value of is a good thing.</p>
+<p>If the p-value is greater than, say 0.05, we fail to reject the null hypothesis that the variances from which the two populations are drawn are equal, and proceed. The p-value of 0.0721955 is a good thing.</p>
 </div>
 <div id="the-t-test" class="section level3">
 <h3>The t-test</h3>
@@ -593,9 +597,6 @@ read.table(&quot;rs182549.rs.clean.txt&quot;,col.names=c(&quot;user&quot;,&quot;
 
 alllactose_genopheno&lt;-merge(merge(user_lactose,rs4988235,by = &quot;user&quot;,all=FALSE),rs182549,by = &quot;user&quot;,all=FALSE)
 
-#alllactose_genopheno %&gt;% group_by(LactoseScrubbed,rs4988235,rs182549) %&gt;% dplyr::summarize(observed=n()) -&gt; lactosect
-
-
 #the default contingency table looks awful, lets do the math and display a unified table
 table(alllactose_genopheno$LactoseScrubbed,alllactose_genopheno$rs4988235,alllactose_genopheno$rs182549) -&gt; al_ct
 p_tot&lt;-as.array(margin.table(al_ct,1))
@@ -833,7 +834,7 @@ alleyes_genopheno&lt;-merge(user_eyes,alleyes,by = &quot;user&quot;,all=FALSE)</
 ## AIC: 437.03
 ## 
 ## Number of Fisher Scoring iterations: 6</code></pre>
-<p>4 of our 6 SNPs are associated with differences in eye color (p&lt;.01).</p>
+<p>4 of our 6 SNPs are associated with differences in eye color (p&lt;.05).</p>
 <p>This script can be found on <a href="https://github.com/leipzig/INFO812_opensnp"><a href="https://github.com/leipzig/INFO812_opensnp" class="uri">https://github.com/leipzig/INFO812_opensnp</a></a>.</p>
 <pre class="r"><code>sessionInfo()</code></pre>
 <pre><code>## R version 3.2.3 (2015-12-10)
