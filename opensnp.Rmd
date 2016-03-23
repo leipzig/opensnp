@@ -164,6 +164,8 @@ t.test(female_heights$MetricHeight,male_heights$MetricHeight,var.equal=TRUE,alte
 With a p-value below the calculable minimum, we can reject the null hypothesis these males and females are drawn from populations with equal height, and accept the alternate hypothesis that men are taller than women.
 
 # SNPs affecting height
+SNPs are assigned "rs" (reference SNP) identifiers which are unique for a position on the genome.
+
 https://www.snpedia.com/index.php/Height cites 
 > nature SNP rs1042725 is associated with height (P = 4E-8) in a study involving over 20,000 individuals. The gene harboring this SNP, HMGA2, is a strong biological
 > candidate for having an influence on height, since rare, severe mutations in this gene are known to alter body size in mice and humans.
@@ -344,7 +346,7 @@ chi_res
 
 #only take those cells with sufficient counts
 agd[agd$obs>4,] -> agdfilt
-knitr::kable(agdfilt,row.names=FALSE,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance")
+knitr::kable(agdfilt,row.names=FALSE,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance. Several genotypes are omitted because they do not have adequate counts for the Chi-square.")
 ```
 
 Which combinations differ? I am most curious about the high risk GG/CC allele.

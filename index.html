@@ -424,6 +424,7 @@ lev</code></pre>
 </div>
 <div id="snps-affecting-height" class="section level1">
 <h1>SNPs affecting height</h1>
+<p>SNPs are assigned “rs” (reference SNP) identifiers which are unique for a position on the genome.</p>
 <p><a href="https://www.snpedia.com/index.php/Height" class="uri">https://www.snpedia.com/index.php/Height</a> cites &gt; nature SNP rs1042725 is associated with height (P = 4E-8) in a study involving over 20,000 individuals. The gene harboring this SNP, HMGA2, is a strong biological &gt; candidate for having an influence on height, since rare, severe mutations in this gene are known to alter body size in mice and humans.</p>
 <blockquote>
 <p>Note that this SNP is by no means the whole story; rs1042725 is estimated to explain only 0.3% of population variation in height in both adults and children (approx 0.4 cm increased adult height per C allele), leaving over 99% of the influences on height to be described in the future …</p>
@@ -780,9 +781,9 @@ chi_res</code></pre>
 ## X-squared = 47.232, df = 2, p-value = 5.543e-11</code></pre>
 <pre class="r"><code>#only take those cells with sufficient counts
 agd[agd$obs&gt;4,] -&gt; agdfilt
-knitr::kable(agdfilt,row.names=FALSE,caption=&quot;Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance&quot;)</code></pre>
+knitr::kable(agdfilt,row.names=FALSE,caption=&quot;Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance. Several genotypes are omitted because they do not have adequate counts for the Chi-square.&quot;)</code></pre>
 <table>
-<caption>Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance</caption>
+<caption>Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance. Several genotypes are omitted because they do not have adequate counts for the Chi-square.</caption>
 <thead>
 <tr class="header">
 <th align="left">LactoseScrubbed</th>
