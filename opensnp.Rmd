@@ -344,7 +344,7 @@ chi_res
 
 #only take those cells with sufficient counts
 agd[agd$obs>4,] -> agdfilt
-knitr::kable(agdfilt,row.names=FALSE,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance")
+knitr::kable(agdfilt,row.names=FALSE,caption="Lactose breakdown - rs4988235(G) and rs182549(C) are predictive of lactose intolerance. Several genotypes are omitted because they do not have adequate counts for the Chi-square.")
 ```
 
 Which combinations differ? I am most curious about the high risk GG/CC allele.
