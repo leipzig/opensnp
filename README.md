@@ -4,4 +4,4 @@ Genome wide association studies are designed to look for genetic markers, typica
 
 Can we validate published genome-wide association studies of common human phenotypes using the relatively small volunteered data publicly available in OpenSNP? 
 
-You can view the report at: [http://leipzig.github.io/INFO812_opensnp/](http://leipzig.github.io/INFO812_opensnp/)
+You can view the report at: [http://leipzig.github.io/opensnp/](http://leipzig.github.io/opensnp/)
