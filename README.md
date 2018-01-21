@@ -9,7 +9,7 @@ You can view the report at: [http://leipzig.github.io/opensnp/](http://leipzig.g
 
 # Try it live
 
-[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/wildtreetech/explore-open-data/master)
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/leipzig/opensnp/master)
 
 You can try out building the R Markdown file in RStudio within Binder. Click the link above then start RStudio from the menu in the upper right.
 
