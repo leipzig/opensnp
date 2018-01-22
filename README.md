@@ -14,3 +14,5 @@ You can view the report at: [http://leipzig.github.io/opensnp/](http://leipzig.g
 You can try out building the R Markdown file in RStudio within Binder. Click the link above then start RStudio from the menu in the upper right.
 
 ![howto](https://github.com/binder-examples/dockerfile-rstudio/raw/1dd9abfee977bd3524829fce9d8f792790d5db08/rstudio_ui.png)
+
+See the [official examples](https://github.com/binder-examples/dockerfile-rstudio) for the original Binder/RStudio template.
