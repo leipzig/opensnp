@@ -15,4 +15,4 @@ You can try out building the R Markdown file in RStudio within Binder. Click the
 
 ![howto](https://github.com/binder-examples/dockerfile-rstudio/raw/1dd9abfee977bd3524829fce9d8f792790d5db08/rstudio_ui.png)
 
-See the [official examples](https://github.com/binder-examples/dockerfile-rstudio) for the original Binder/RStudio template.
+See the [original Binder/RStudio template](https://github.com/binder-examples/dockerfile-rstudio) and the [Rocker/Binder](https://github.com/rocker-org/binder) project for more information.
